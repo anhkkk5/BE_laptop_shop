@@ -105,9 +105,12 @@ export class ProductService {
     await this.productRepository.increaseStock(id, quantity);
   }
 
-  async getInventorySummary() {
-    return this.productRepository.getInventorySummary(
-      ProductService.LOW_STOCK_THRESHOLD,
-    );
+  async getInventorySummary(lowStockThreshold?: number) {
+    const threshold =
+      lowStockThreshold && lowStockThreshold > 0
+        ? lowStockThreshold
+        : ProductService.LOW_STOCK_THRESHOLD;
+
+    return this.productRepository.getInventorySummary(threshold);
   }
 }

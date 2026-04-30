@@ -27,8 +27,9 @@ export class ProductAdminController {
   }
 
   @Get('inventory-summary')
-  async getInventorySummary() {
-    return this.productService.getInventorySummary();
+  async getInventorySummary(@Query('lowStockThreshold') threshold?: string) {
+    const parsedThreshold = threshold ? Number(threshold) : undefined;
+    return this.productService.getInventorySummary(parsedThreshold);
   }
 
   @Get(':id')
