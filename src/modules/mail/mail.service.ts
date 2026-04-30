@@ -36,7 +36,7 @@ export class MailService {
   }
 
   async sendVerificationEmail(email: string, token: string): Promise<void> {
-    const verifyUrl = `${this.frontendUrl}/auth/verify-email?token=${token}`;
+    const verifyUrl = `${this.frontendUrl}/verify-email?token=${token}`;
 
     try {
       await this.transporter.sendMail({
@@ -71,7 +71,7 @@ export class MailService {
   }
 
   async sendPasswordResetEmail(email: string, token: string): Promise<void> {
-    const resetUrl = `${this.frontendUrl}/auth/reset-password?token=${token}`;
+    const resetUrl = `${this.frontendUrl}/reset-password?token=${token}`;
 
     try {
       await this.transporter.sendMail({

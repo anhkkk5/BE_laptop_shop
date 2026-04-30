@@ -17,6 +17,9 @@ import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard.js';
 import { RolesGuard } from './common/guards/roles.guard.js';
 import { AuthModule } from './modules/auth/auth.module.js';
 import { UserModule } from './modules/user/user.module.js';
+import { CategoryModule } from './modules/category/category.module.js';
+import { BrandModule } from './modules/brand/brand.module.js';
+import { ProductModule } from './modules/product/product.module.js';
 import { AdminSeed } from './database/seeds/admin.seed.js';
 
 @Module({
@@ -58,6 +61,9 @@ import { AdminSeed } from './database/seeds/admin.seed.js';
 
     AuthModule,
     UserModule,
+    CategoryModule,
+    BrandModule,
+    ProductModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: JwtAuthGuard },
