@@ -1,27 +1,101 @@
 # 🚀 Smart Laptop Store & Technical Service Platform — Project Plan
 
-> **Version:** 1.0
+> **Version:** 2.0 — Modular Monolith + Layered Architecture
 > **Start Date:** April 2026
 > **Stack:** NestJS + Next.js + MySQL + Redis + BullMQ + Socket.IO
+> **Architecture:** Modular Monolith with Layered Architecture per Module
 
 ---
 
 ## 📋 MỤC LỤC
 
 1. [Tổng quan kiến trúc](#1-tổng-quan-kiến-trúc)
-2. [Database Design](#2-database-design)
-3. [Phân chia Modules (Backend)](#3-phân-chia-modules-backend)
-4. [API Endpoints](#4-api-endpoints)
-5. [Frontend Pages](#5-frontend-pages)
-6. [Phase Breakdown & Timeline](#6-phase-breakdown--timeline)
-7. [Tech Stack Chi Tiết](#7-tech-stack-chi-tiết)
-8. [Deploy & CI/CD](#8-deploy--cicd)
+2. [Module Boundaries & Communication](#2-module-boundaries--communication)
+3. [Folder Structure](#3-folder-structure)
+4. [Database Design](#4-database-design)
+5. [Module Chi Tiết](#5-module-chi-tiết)
+6. [API Endpoints](#6-api-endpoints)
+7. [Frontend Pages](#7-frontend-pages)
+8. [Phase Breakdown & Timeline](#8-phase-breakdown--timeline)
+9. [Tech Stack Chi Tiết](#9-tech-stack-chi-tiết)
+10. [Deploy & CI/CD](#10-deploy--cicd)
+11. [Key Algorithms](#11-key-algorithms)
+12. [Testing Strategy](#12-testing-strategy)
 
 ---
 
 ## 1. TỔNG QUAN KIẾN TRÚC
 
-### System Architecture
+### 1.1 Tại sao Modular Monolith?
+
+```
+Microservices          Monolith (MVC)         Modular Monolith ✅
+────────────           ──────────────         ─────────────────
+- Quá phức tạp         - Code spaghetti       - Module boundaries rõ ràng
+  cho 1 người          - Không scale được      - Single deploy, dễ vận hành
+- DevOps overhead      - Khó maintain          - Dễ tách Microservices sau
+- Network latency      - Business logic        - Mỗi module độc lập
+- Distributed debug      lẫn lộn               - Production-grade structure
+```
+
+**Modular Monolith = Single deployable unit** nhưng bên trong chia thành **các module độc lập** với:
+
+- **Clear boundaries**: Mỗi module sở hữu data và logic riêng
+- **Public interfaces**: Module giao tiếp qua exported services, KHÔNG truy cập trực tiếp DB của nhau
+- **Event-driven**: Side effects qua Event Emitter (loose coupling)
+- **Layered Architecture**: Mỗi module có 4 layers rõ ràng
+
+### 1.2 Layered Architecture Per Module
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                    EACH MODULE                           │
+│                                                         │
+│  ┌───────────────────────────────────────────────────┐  │
+│  │  PRESENTATION LAYER (Controllers)                  │  │
+│  │  - HTTP Controllers, WebSocket Gateways            │  │
+│  │  - Input validation (DTOs + Pipes)                 │  │
+│  │  - Route handling, Swagger docs                    │  │
+│  └──────────────────────┬────────────────────────────┘  │
+│                         │ calls                          │
+│  ┌──────────────────────▼────────────────────────────┐  │
+│  │  APPLICATION LAYER (Services)                      │  │
+│  │  - Business logic, Use cases                       │  │
+│  │  - Orchestration, Transactions                     │  │
+│  │  - Event emission                                  │  │
+│  └──────────────────────┬────────────────────────────┘  │
+│                         │ calls                          │
+│  ┌──────────────────────▼────────────────────────────┐  │
+│  │  DOMAIN LAYER (Entities, Enums, Interfaces)        │  │
+│  │  - TypeORM Entities (data shape)                   │  │
+│  │  - Business enums (OrderStatus, PaymentMethod)     │  │
+│  │  - Domain interfaces (contracts)                   │  │
+│  └──────────────────────┬────────────────────────────┘  │
+│                         │ calls                          │
+│  ┌──────────────────────▼────────────────────────────┐  │
+│  │  INFRASTRUCTURE LAYER (Repositories, External)     │  │
+│  │  - TypeORM Repositories (data access)              │  │
+│  │  - External service adapters (Cloudinary, Brevo)   │  │
+│  │  - Redis, BullMQ integrations                      │  │
+│  └───────────────────────────────────────────────────┘  │
+│                                                         │
+│  MODULE EXPORTS: Chỉ export Service interfaces          │
+│  MODULE EVENTS: Emit domain events cho cross-module     │
+└─────────────────────────────────────────────────────────┘
+```
+
+### 1.3 Layer Rules (Bắt buộc)
+
+| Rule                   | Mô tả                                                                                                         |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------- |
+| **Top-down only**      | Presentation → Application → Domain → Infrastructure. KHÔNG được gọi ngược                                    |
+| **Controller = thin**  | Controller CHỈ validate input + gọi service + return response. KHÔNG có business logic                        |
+| **Service = business** | Toàn bộ business logic nằm trong Service layer                                                                |
+| **Repository = data**  | Repository CHỈ làm CRUD + query. KHÔNG có business logic                                                      |
+| **Entity = shape**     | Entity định nghĩa data shape + TypeORM decorators. KHÔNG có methods phức tạp                                  |
+| **Cross-module**       | Module A gọi Module B qua **exported service** hoặc **event**. KHÔNG import repository/entity của module khác |
+
+### 1.4 System Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
@@ -71,6 +145,120 @@
 │  └──────────────────────────────────────────────────────────┘      │
 └─────────────────────────────────────────────────────────────────────┘
 ```
+
+---
+
+## 2. MODULE BOUNDARIES & COMMUNICATION
+
+### 2.1 Module Ownership Map
+
+Mỗi module **sở hữu** data riêng. Không module nào được truy cập trực tiếp entity/repository của module khác.
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                    MODULE OWNERSHIP MAP                              │
+│                                                                     │
+│  ┌─── FOUNDATION ──────────────────────────────────────────────┐   │
+│  │  AuthModule      → owns: refresh_tokens, strategies         │   │
+│  │  UserModule      → owns: users, addresses                   │   │
+│  └─────────────────────────────────────────────────────────────┘   │
+│                                                                     │
+│  ┌─── CATALOG ─────────────────────────────────────────────────┐   │
+│  │  ProductModule   → owns: products, categories, brands,      │   │
+│  │                    product_images, product_specs             │   │
+│  │  SupplierModule  → owns: suppliers                          │   │
+│  └─────────────────────────────────────────────────────────────┘   │
+│                                                                     │
+│  ┌─── TRANSACTION ─────────────────────────────────────────────┐   │
+│  │  CartModule      → owns: carts, cart_items                  │   │
+│  │  OrderModule     → owns: orders, order_items, vouchers      │   │
+│  │  PaymentModule   → owns: payments                           │   │
+│  │  ShippingModule  → owns: shipping logic (no table)          │   │
+│  └─────────────────────────────────────────────────────────────┘   │
+│                                                                     │
+│  ┌─── INVENTORY ───────────────────────────────────────────────┐   │
+│  │  InventoryModule → owns: inventory, stock_movements         │   │
+│  └─────────────────────────────────────────────────────────────┘   │
+│                                                                     │
+│  ┌─── BUSINESS LOGIC ──────────────────────────────────────────┐   │
+│  │  PcBuilderModule → owns: compatibility_rules                │   │
+│  │  WarrantyModule  → owns: warranty_tickets, repair_logs      │   │
+│  │  ReviewModule    → owns: reviews                            │   │
+│  └─────────────────────────────────────────────────────────────┘   │
+│                                                                     │
+│  ┌─── INFRASTRUCTURE ──────────────────────────────────────────┐   │
+│  │  NotificationModule → owns: notifications                   │   │
+│  │  UploadModule       → owns: nothing (Cloudinary adapter)    │   │
+│  │  DashboardModule    → owns: nothing (aggregate queries)     │   │
+│  └─────────────────────────────────────────────────────────────┘   │
+│                                                                     │
+│  ┌─── CROSS-CUTTING ──────────────────────────────────────────┐   │
+│  │  AuditModule     → owns: audit_logs                         │   │
+│  └─────────────────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### 2.2 Module Communication Rules
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│                  COMMUNICATION RULES                              │
+│                                                                  │
+│  ✅ ALLOWED:                                                     │
+│  ┌──────────┐  import service   ┌──────────┐                    │
+│  │ Module A │ ────────────────→ │ Module B │                    │
+│  └──────────┘  (via NestJS DI)  └──────────┘                    │
+│                                                                  │
+│  ┌──────────┐   emit event      ┌──────────┐                    │
+│  │ Module A │ ─ ─ ─ ─ ─ ─ ─ → │ Module B │                    │
+│  └──────────┘  (EventEmitter2)  └──────────┘                    │
+│                                                                  │
+│  ❌ FORBIDDEN:                                                   │
+│  ┌──────────┐  import repo/entity ┌──────────┐                  │
+│  │ Module A │ ──────────X───────→ │ Module B │                  │
+│  └──────────┘                     └──────────┘                  │
+│                                                                  │
+│  ❌ FORBIDDEN:                                                   │
+│  ┌──────────┐  direct DB query    ┌──────────┐                  │
+│  │ Module A │ ──────────X───────→ │ Module B │                  │
+│  └──────────┘    on B's tables    └──────────┘                  │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+### 2.3 Cross-Module Dependencies
+
+| Consumer Module     | Depends On (via Service)                                                         | Communication              |
+| ------------------- | -------------------------------------------------------------------------------- | -------------------------- |
+| **AuthModule**      | UserModule.UserService                                                           | Sync (DI import)           |
+| **CartModule**      | ProductModule.ProductService                                                     | Sync (check price, stock)  |
+| **OrderModule**     | CartModule.CartService, InventoryModule.InventoryService, UserModule.UserService | Sync (DI import)           |
+| **OrderModule**     | PaymentModule, NotificationModule, InventoryModule                               | Async (Events)             |
+| **PaymentModule**   | OrderModule.OrderService                                                         | Sync (update order status) |
+| **InventoryModule** | NotificationModule                                                               | Async (low-stock event)    |
+| **WarrantyModule**  | UserModule.UserService, ProductModule.ProductService, NotificationModule         | Mixed                      |
+| **PcBuilderModule** | ProductModule.ProductService                                                     | Sync (get product specs)   |
+| **ReviewModule**    | ProductModule.ProductService, OrderModule.OrderService                           | Sync (verify purchase)     |
+| **DashboardModule** | OrderModule, PaymentModule, InventoryModule, WarrantyModule                      | Sync (aggregate queries)   |
+
+### 2.4 Domain Events
+
+| Event                     | Emitted By      | Consumed By                         | Purpose                        |
+| ------------------------- | --------------- | ----------------------------------- | ------------------------------ |
+| `order.created`           | OrderModule     | InventoryModule, NotificationModule | Reserve stock, notify customer |
+| `order.confirmed`         | OrderModule     | NotificationModule                  | Notify customer                |
+| `order.cancelled`         | OrderModule     | InventoryModule, NotificationModule | Release stock, notify          |
+| `order.status_changed`    | OrderModule     | NotificationModule, ShippingModule  | Notify, update tracking        |
+| `payment.completed`       | PaymentModule   | OrderModule, NotificationModule     | Confirm order, notify          |
+| `payment.failed`          | PaymentModule   | OrderModule, InventoryModule        | Cancel order, release stock    |
+| `inventory.low_stock`     | InventoryModule | NotificationModule                  | Alert warehouse manager        |
+| `warranty.created`        | WarrantyModule  | NotificationModule                  | Notify technician              |
+| `warranty.status_changed` | WarrantyModule  | NotificationModule                  | Notify customer                |
+| `user.registered`         | UserModule      | NotificationModule                  | Send welcome email             |
+| `review.created`          | ReviewModule    | ProductModule                       | Update avg_rating              |
+
+---
+
+## 3. FOLDER STRUCTURE
 
 ### Folder Structure — Backend (NestJS)
 
@@ -367,310 +555,332 @@ FeShopLaptop/
 ### Bảng chi tiết
 
 #### `users`
-| Column | Type | Constraints |
-|--------|------|-------------|
-| id | INT | PK, AUTO_INCREMENT |
-| email | VARCHAR(255) | UNIQUE, NOT NULL |
-| password | VARCHAR(255) | NULL (Google OAuth users) |
-| role | ENUM('customer','staff','technician','warehouse','admin') | DEFAULT 'customer' |
-| full_name | VARCHAR(100) | NOT NULL |
-| phone | VARCHAR(20) | NULL |
-| avatar | VARCHAR(500) | NULL |
-| is_verified | BOOLEAN | DEFAULT false |
-| google_id | VARCHAR(255) | NULL, UNIQUE |
-| refresh_token | VARCHAR(500) | NULL |
-| last_login_at | DATETIME | NULL |
-| created_at | DATETIME | DEFAULT NOW() |
-| updated_at | DATETIME | ON UPDATE NOW() |
+
+| Column        | Type                                                      | Constraints               |
+| ------------- | --------------------------------------------------------- | ------------------------- |
+| id            | INT                                                       | PK, AUTO_INCREMENT        |
+| email         | VARCHAR(255)                                              | UNIQUE, NOT NULL          |
+| password      | VARCHAR(255)                                              | NULL (Google OAuth users) |
+| role          | ENUM('customer','staff','technician','warehouse','admin') | DEFAULT 'customer'        |
+| full_name     | VARCHAR(100)                                              | NOT NULL                  |
+| phone         | VARCHAR(20)                                               | NULL                      |
+| avatar        | VARCHAR(500)                                              | NULL                      |
+| is_verified   | BOOLEAN                                                   | DEFAULT false             |
+| google_id     | VARCHAR(255)                                              | NULL, UNIQUE              |
+| refresh_token | VARCHAR(500)                                              | NULL                      |
+| last_login_at | DATETIME                                                  | NULL                      |
+| created_at    | DATETIME                                                  | DEFAULT NOW()             |
+| updated_at    | DATETIME                                                  | ON UPDATE NOW()           |
 
 #### `addresses`
-| Column | Type | Constraints |
-|--------|------|-------------|
-| id | INT | PK, AUTO_INCREMENT |
-| user_id | INT | FK → users.id |
-| full_name | VARCHAR(100) | NOT NULL |
-| phone | VARCHAR(20) | NOT NULL |
-| province | VARCHAR(100) | NOT NULL |
-| district | VARCHAR(100) | NOT NULL |
-| ward | VARCHAR(100) | NOT NULL |
-| street | VARCHAR(255) | NOT NULL |
-| is_default | BOOLEAN | DEFAULT false |
-| created_at | DATETIME | DEFAULT NOW() |
+
+| Column     | Type         | Constraints        |
+| ---------- | ------------ | ------------------ |
+| id         | INT          | PK, AUTO_INCREMENT |
+| user_id    | INT          | FK → users.id      |
+| full_name  | VARCHAR(100) | NOT NULL           |
+| phone      | VARCHAR(20)  | NOT NULL           |
+| province   | VARCHAR(100) | NOT NULL           |
+| district   | VARCHAR(100) | NOT NULL           |
+| ward       | VARCHAR(100) | NOT NULL           |
+| street     | VARCHAR(255) | NOT NULL           |
+| is_default | BOOLEAN      | DEFAULT false      |
+| created_at | DATETIME     | DEFAULT NOW()      |
 
 #### `categories`
-| Column | Type | Constraints |
-|--------|------|-------------|
-| id | INT | PK, AUTO_INCREMENT |
-| name | VARCHAR(100) | NOT NULL |
-| slug | VARCHAR(100) | UNIQUE |
-| description | TEXT | NULL |
-| image | VARCHAR(500) | NULL |
-| parent_id | INT | FK → categories.id, NULL |
-| sort_order | INT | DEFAULT 0 |
-| is_active | BOOLEAN | DEFAULT true |
-| created_at | DATETIME | DEFAULT NOW() |
+
+| Column      | Type         | Constraints              |
+| ----------- | ------------ | ------------------------ |
+| id          | INT          | PK, AUTO_INCREMENT       |
+| name        | VARCHAR(100) | NOT NULL                 |
+| slug        | VARCHAR(100) | UNIQUE                   |
+| description | TEXT         | NULL                     |
+| image       | VARCHAR(500) | NULL                     |
+| parent_id   | INT          | FK → categories.id, NULL |
+| sort_order  | INT          | DEFAULT 0                |
+| is_active   | BOOLEAN      | DEFAULT true             |
+| created_at  | DATETIME     | DEFAULT NOW()            |
 
 #### `brands`
-| Column | Type | Constraints |
-|--------|------|-------------|
-| id | INT | PK, AUTO_INCREMENT |
-| name | VARCHAR(100) | NOT NULL |
-| slug | VARCHAR(100) | UNIQUE |
-| logo | VARCHAR(500) | NULL |
-| description | TEXT | NULL |
-| is_active | BOOLEAN | DEFAULT true |
-| created_at | DATETIME | DEFAULT NOW() |
+
+| Column      | Type         | Constraints        |
+| ----------- | ------------ | ------------------ |
+| id          | INT          | PK, AUTO_INCREMENT |
+| name        | VARCHAR(100) | NOT NULL           |
+| slug        | VARCHAR(100) | UNIQUE             |
+| logo        | VARCHAR(500) | NULL               |
+| description | TEXT         | NULL               |
+| is_active   | BOOLEAN      | DEFAULT true       |
+| created_at  | DATETIME     | DEFAULT NOW()      |
 
 #### `products`
-| Column | Type | Constraints |
-|--------|------|-------------|
-| id | INT | PK, AUTO_INCREMENT |
-| name | VARCHAR(255) | NOT NULL |
-| slug | VARCHAR(255) | UNIQUE |
-| sku | VARCHAR(50) | UNIQUE |
-| price | DECIMAL(12,0) | NOT NULL |
-| sale_price | DECIMAL(12,0) | NULL |
-| category_id | INT | FK → categories.id |
-| brand_id | INT | FK → brands.id |
-| supplier_id | INT | FK → suppliers.id |
-| description | TEXT | NULL |
-| short_description | VARCHAR(500) | NULL |
-| warranty_months | INT | DEFAULT 12 |
-| weight | DECIMAL(8,2) | NULL (gram) |
-| status | ENUM('active','inactive','discontinued') | DEFAULT 'active' |
-| is_featured | BOOLEAN | DEFAULT false |
-| avg_rating | DECIMAL(2,1) | DEFAULT 0 |
-| review_count | INT | DEFAULT 0 |
-| view_count | INT | DEFAULT 0 |
-| sold_count | INT | DEFAULT 0 |
-| created_at | DATETIME | DEFAULT NOW() |
-| updated_at | DATETIME | ON UPDATE NOW() |
+
+| Column            | Type                                     | Constraints        |
+| ----------------- | ---------------------------------------- | ------------------ |
+| id                | INT                                      | PK, AUTO_INCREMENT |
+| name              | VARCHAR(255)                             | NOT NULL           |
+| slug              | VARCHAR(255)                             | UNIQUE             |
+| sku               | VARCHAR(50)                              | UNIQUE             |
+| price             | DECIMAL(12,0)                            | NOT NULL           |
+| sale_price        | DECIMAL(12,0)                            | NULL               |
+| category_id       | INT                                      | FK → categories.id |
+| brand_id          | INT                                      | FK → brands.id     |
+| supplier_id       | INT                                      | FK → suppliers.id  |
+| description       | TEXT                                     | NULL               |
+| short_description | VARCHAR(500)                             | NULL               |
+| warranty_months   | INT                                      | DEFAULT 12         |
+| weight            | DECIMAL(8,2)                             | NULL (gram)        |
+| status            | ENUM('active','inactive','discontinued') | DEFAULT 'active'   |
+| is_featured       | BOOLEAN                                  | DEFAULT false      |
+| avg_rating        | DECIMAL(2,1)                             | DEFAULT 0          |
+| review_count      | INT                                      | DEFAULT 0          |
+| view_count        | INT                                      | DEFAULT 0          |
+| sold_count        | INT                                      | DEFAULT 0          |
+| created_at        | DATETIME                                 | DEFAULT NOW()      |
+| updated_at        | DATETIME                                 | ON UPDATE NOW()    |
 
 #### `product_images`
-| Column | Type | Constraints |
-|--------|------|-------------|
-| id | INT | PK, AUTO_INCREMENT |
-| product_id | INT | FK → products.id |
-| url | VARCHAR(500) | NOT NULL |
-| alt | VARCHAR(255) | NULL |
-| sort_order | INT | DEFAULT 0 |
-| is_primary | BOOLEAN | DEFAULT false |
+
+| Column     | Type         | Constraints        |
+| ---------- | ------------ | ------------------ |
+| id         | INT          | PK, AUTO_INCREMENT |
+| product_id | INT          | FK → products.id   |
+| url        | VARCHAR(500) | NOT NULL           |
+| alt        | VARCHAR(255) | NULL               |
+| sort_order | INT          | DEFAULT 0          |
+| is_primary | BOOLEAN      | DEFAULT false      |
 
 #### `product_specs`
-| Column | Type | Constraints |
-|--------|------|-------------|
-| id | INT | PK, AUTO_INCREMENT |
-| product_id | INT | FK → products.id |
-| spec_key | VARCHAR(100) | NOT NULL (e.g., 'cpu', 'ram', 'socket_type') |
-| spec_value | VARCHAR(500) | NOT NULL |
-| spec_group | VARCHAR(100) | NULL (e.g., 'Processor', 'Memory') |
-| sort_order | INT | DEFAULT 0 |
+
+| Column     | Type         | Constraints                                  |
+| ---------- | ------------ | -------------------------------------------- |
+| id         | INT          | PK, AUTO_INCREMENT                           |
+| product_id | INT          | FK → products.id                             |
+| spec_key   | VARCHAR(100) | NOT NULL (e.g., 'cpu', 'ram', 'socket_type') |
+| spec_value | VARCHAR(500) | NOT NULL                                     |
+| spec_group | VARCHAR(100) | NULL (e.g., 'Processor', 'Memory')           |
+| sort_order | INT          | DEFAULT 0                                    |
 
 #### `compatibility_rules`
-| Column | Type | Constraints |
-|--------|------|-------------|
-| id | INT | PK, AUTO_INCREMENT |
-| rule_type | ENUM('socket','ram_type','form_factor','power','slot') | NOT NULL |
-| component_type_a | VARCHAR(50) | NOT NULL (e.g., 'cpu') |
-| spec_key_a | VARCHAR(100) | NOT NULL (e.g., 'socket_type') |
-| component_type_b | VARCHAR(50) | NOT NULL (e.g., 'mainboard') |
-| spec_key_b | VARCHAR(100) | NOT NULL (e.g., 'socket_type') |
-| match_type | ENUM('exact','contains','gte','lte') | DEFAULT 'exact' |
-| description | VARCHAR(255) | NULL |
-| is_active | BOOLEAN | DEFAULT true |
+
+| Column           | Type                                                   | Constraints                    |
+| ---------------- | ------------------------------------------------------ | ------------------------------ |
+| id               | INT                                                    | PK, AUTO_INCREMENT             |
+| rule_type        | ENUM('socket','ram_type','form_factor','power','slot') | NOT NULL                       |
+| component_type_a | VARCHAR(50)                                            | NOT NULL (e.g., 'cpu')         |
+| spec_key_a       | VARCHAR(100)                                           | NOT NULL (e.g., 'socket_type') |
+| component_type_b | VARCHAR(50)                                            | NOT NULL (e.g., 'mainboard')   |
+| spec_key_b       | VARCHAR(100)                                           | NOT NULL (e.g., 'socket_type') |
+| match_type       | ENUM('exact','contains','gte','lte')                   | DEFAULT 'exact'                |
+| description      | VARCHAR(255)                                           | NULL                           |
+| is_active        | BOOLEAN                                                | DEFAULT true                   |
 
 #### `inventory`
-| Column | Type | Constraints |
-|--------|------|-------------|
-| id | INT | PK, AUTO_INCREMENT |
-| product_id | INT | FK → products.id, UNIQUE |
-| available_qty | INT | DEFAULT 0 |
-| reserved_qty | INT | DEFAULT 0 |
-| damaged_qty | INT | DEFAULT 0 |
-| incoming_qty | INT | DEFAULT 0 |
-| warranty_qty | INT | DEFAULT 0 |
-| low_stock_threshold | INT | DEFAULT 5 |
-| updated_at | DATETIME | ON UPDATE NOW() |
+
+| Column              | Type     | Constraints              |
+| ------------------- | -------- | ------------------------ |
+| id                  | INT      | PK, AUTO_INCREMENT       |
+| product_id          | INT      | FK → products.id, UNIQUE |
+| available_qty       | INT      | DEFAULT 0                |
+| reserved_qty        | INT      | DEFAULT 0                |
+| damaged_qty         | INT      | DEFAULT 0                |
+| incoming_qty        | INT      | DEFAULT 0                |
+| warranty_qty        | INT      | DEFAULT 0                |
+| low_stock_threshold | INT      | DEFAULT 5                |
+| updated_at          | DATETIME | ON UPDATE NOW()          |
 
 #### `stock_movements`
-| Column | Type | Constraints |
-|--------|------|-------------|
-| id | INT | PK, AUTO_INCREMENT |
-| product_id | INT | FK → products.id |
-| type | ENUM('import','export','reserve','release','damage','warranty_in','warranty_out','adjustment') | NOT NULL |
-| quantity | INT | NOT NULL |
-| reference_type | VARCHAR(50) | NULL (e.g., 'order', 'warranty') |
-| reference_id | INT | NULL |
-| note | TEXT | NULL |
-| performed_by | INT | FK → users.id |
-| created_at | DATETIME | DEFAULT NOW() |
+
+| Column         | Type                                                                                           | Constraints                      |
+| -------------- | ---------------------------------------------------------------------------------------------- | -------------------------------- |
+| id             | INT                                                                                            | PK, AUTO_INCREMENT               |
+| product_id     | INT                                                                                            | FK → products.id                 |
+| type           | ENUM('import','export','reserve','release','damage','warranty_in','warranty_out','adjustment') | NOT NULL                         |
+| quantity       | INT                                                                                            | NOT NULL                         |
+| reference_type | VARCHAR(50)                                                                                    | NULL (e.g., 'order', 'warranty') |
+| reference_id   | INT                                                                                            | NULL                             |
+| note           | TEXT                                                                                           | NULL                             |
+| performed_by   | INT                                                                                            | FK → users.id                    |
+| created_at     | DATETIME                                                                                       | DEFAULT NOW()                    |
 
 #### `carts`
-| Column | Type | Constraints |
-|--------|------|-------------|
-| id | INT | PK, AUTO_INCREMENT |
-| user_id | INT | FK → users.id, UNIQUE |
-| updated_at | DATETIME | ON UPDATE NOW() |
+
+| Column     | Type     | Constraints           |
+| ---------- | -------- | --------------------- |
+| id         | INT      | PK, AUTO_INCREMENT    |
+| user_id    | INT      | FK → users.id, UNIQUE |
+| updated_at | DATETIME | ON UPDATE NOW()       |
 
 #### `cart_items`
-| Column | Type | Constraints |
-|--------|------|-------------|
-| id | INT | PK, AUTO_INCREMENT |
-| cart_id | INT | FK → carts.id |
-| product_id | INT | FK → products.id |
-| quantity | INT | NOT NULL, CHECK > 0 |
-| created_at | DATETIME | DEFAULT NOW() |
-| UNIQUE(cart_id, product_id) | | |
+
+| Column                      | Type     | Constraints         |
+| --------------------------- | -------- | ------------------- |
+| id                          | INT      | PK, AUTO_INCREMENT  |
+| cart_id                     | INT      | FK → carts.id       |
+| product_id                  | INT      | FK → products.id    |
+| quantity                    | INT      | NOT NULL, CHECK > 0 |
+| created_at                  | DATETIME | DEFAULT NOW()       |
+| UNIQUE(cart_id, product_id) |          |                     |
 
 #### `vouchers`
-| Column | Type | Constraints |
-|--------|------|-------------|
-| id | INT | PK, AUTO_INCREMENT |
-| code | VARCHAR(50) | UNIQUE, NOT NULL |
-| type | ENUM('percentage','fixed') | NOT NULL |
-| value | DECIMAL(12,0) | NOT NULL |
-| min_order_value | DECIMAL(12,0) | DEFAULT 0 |
-| max_discount | DECIMAL(12,0) | NULL |
-| usage_limit | INT | NULL |
-| used_count | INT | DEFAULT 0 |
-| start_date | DATETIME | NOT NULL |
-| end_date | DATETIME | NOT NULL |
-| is_active | BOOLEAN | DEFAULT true |
-| created_at | DATETIME | DEFAULT NOW() |
+
+| Column          | Type                       | Constraints        |
+| --------------- | -------------------------- | ------------------ |
+| id              | INT                        | PK, AUTO_INCREMENT |
+| code            | VARCHAR(50)                | UNIQUE, NOT NULL   |
+| type            | ENUM('percentage','fixed') | NOT NULL           |
+| value           | DECIMAL(12,0)              | NOT NULL           |
+| min_order_value | DECIMAL(12,0)              | DEFAULT 0          |
+| max_discount    | DECIMAL(12,0)              | NULL               |
+| usage_limit     | INT                        | NULL               |
+| used_count      | INT                        | DEFAULT 0          |
+| start_date      | DATETIME                   | NOT NULL           |
+| end_date        | DATETIME                   | NOT NULL           |
+| is_active       | BOOLEAN                    | DEFAULT true       |
+| created_at      | DATETIME                   | DEFAULT NOW()      |
 
 #### `orders`
-| Column | Type | Constraints |
-|--------|------|-------------|
-| id | INT | PK, AUTO_INCREMENT |
-| order_code | VARCHAR(20) | UNIQUE, NOT NULL |
-| user_id | INT | FK → users.id |
-| status | ENUM('pending','confirmed','processing','packed','shipping','delivered','completed','cancelled','refunded') | DEFAULT 'pending' |
-| subtotal | DECIMAL(12,0) | NOT NULL |
-| shipping_fee | DECIMAL(12,0) | DEFAULT 0 |
-| discount_amount | DECIMAL(12,0) | DEFAULT 0 |
-| total | DECIMAL(12,0) | NOT NULL |
-| voucher_id | INT | FK → vouchers.id, NULL |
-| shipping_address | JSON | NOT NULL |
-| note | TEXT | NULL |
-| cancelled_reason | TEXT | NULL |
-| confirmed_by | INT | FK → users.id, NULL |
-| confirmed_at | DATETIME | NULL |
-| shipped_at | DATETIME | NULL |
-| delivered_at | DATETIME | NULL |
-| completed_at | DATETIME | NULL |
-| created_at | DATETIME | DEFAULT NOW() |
-| updated_at | DATETIME | ON UPDATE NOW() |
+
+| Column           | Type                                                                                                        | Constraints            |
+| ---------------- | ----------------------------------------------------------------------------------------------------------- | ---------------------- |
+| id               | INT                                                                                                         | PK, AUTO_INCREMENT     |
+| order_code       | VARCHAR(20)                                                                                                 | UNIQUE, NOT NULL       |
+| user_id          | INT                                                                                                         | FK → users.id          |
+| status           | ENUM('pending','confirmed','processing','packed','shipping','delivered','completed','cancelled','refunded') | DEFAULT 'pending'      |
+| subtotal         | DECIMAL(12,0)                                                                                               | NOT NULL               |
+| shipping_fee     | DECIMAL(12,0)                                                                                               | DEFAULT 0              |
+| discount_amount  | DECIMAL(12,0)                                                                                               | DEFAULT 0              |
+| total            | DECIMAL(12,0)                                                                                               | NOT NULL               |
+| voucher_id       | INT                                                                                                         | FK → vouchers.id, NULL |
+| shipping_address | JSON                                                                                                        | NOT NULL               |
+| note             | TEXT                                                                                                        | NULL                   |
+| cancelled_reason | TEXT                                                                                                        | NULL                   |
+| confirmed_by     | INT                                                                                                         | FK → users.id, NULL    |
+| confirmed_at     | DATETIME                                                                                                    | NULL                   |
+| shipped_at       | DATETIME                                                                                                    | NULL                   |
+| delivered_at     | DATETIME                                                                                                    | NULL                   |
+| completed_at     | DATETIME                                                                                                    | NULL                   |
+| created_at       | DATETIME                                                                                                    | DEFAULT NOW()          |
+| updated_at       | DATETIME                                                                                                    | ON UPDATE NOW()        |
 
 #### `order_items`
-| Column | Type | Constraints |
-|--------|------|-------------|
-| id | INT | PK, AUTO_INCREMENT |
-| order_id | INT | FK → orders.id |
-| product_id | INT | FK → products.id |
-| product_name | VARCHAR(255) | NOT NULL (snapshot) |
-| product_image | VARCHAR(500) | NULL (snapshot) |
-| price | DECIMAL(12,0) | NOT NULL (snapshot) |
-| quantity | INT | NOT NULL |
-| serial_numbers | JSON | NULL |
-| warranty_start | DATE | NULL |
-| warranty_end | DATE | NULL |
+
+| Column         | Type          | Constraints         |
+| -------------- | ------------- | ------------------- |
+| id             | INT           | PK, AUTO_INCREMENT  |
+| order_id       | INT           | FK → orders.id      |
+| product_id     | INT           | FK → products.id    |
+| product_name   | VARCHAR(255)  | NOT NULL (snapshot) |
+| product_image  | VARCHAR(500)  | NULL (snapshot)     |
+| price          | DECIMAL(12,0) | NOT NULL (snapshot) |
+| quantity       | INT           | NOT NULL            |
+| serial_numbers | JSON          | NULL                |
+| warranty_start | DATE          | NULL                |
+| warranty_end   | DATE          | NULL                |
 
 #### `payments`
-| Column | Type | Constraints |
-|--------|------|-------------|
-| id | INT | PK, AUTO_INCREMENT |
-| order_id | INT | FK → orders.id |
-| method | ENUM('vietqr','momo','cod') | NOT NULL |
-| amount | DECIMAL(12,0) | NOT NULL |
-| status | ENUM('pending','processing','paid','failed','refunded') | DEFAULT 'pending' |
-| transaction_id | VARCHAR(100) | NULL |
-| payment_data | JSON | NULL |
-| paid_at | DATETIME | NULL |
-| created_at | DATETIME | DEFAULT NOW() |
-| updated_at | DATETIME | ON UPDATE NOW() |
+
+| Column         | Type                                                    | Constraints        |
+| -------------- | ------------------------------------------------------- | ------------------ |
+| id             | INT                                                     | PK, AUTO_INCREMENT |
+| order_id       | INT                                                     | FK → orders.id     |
+| method         | ENUM('vietqr','momo','cod')                             | NOT NULL           |
+| amount         | DECIMAL(12,0)                                           | NOT NULL           |
+| status         | ENUM('pending','processing','paid','failed','refunded') | DEFAULT 'pending'  |
+| transaction_id | VARCHAR(100)                                            | NULL               |
+| payment_data   | JSON                                                    | NULL               |
+| paid_at        | DATETIME                                                | NULL               |
+| created_at     | DATETIME                                                | DEFAULT NOW()      |
+| updated_at     | DATETIME                                                | ON UPDATE NOW()    |
 
 #### `warranty_tickets`
-| Column | Type | Constraints |
-|--------|------|-------------|
-| id | INT | PK, AUTO_INCREMENT |
-| ticket_code | VARCHAR(20) | UNIQUE, NOT NULL |
-| user_id | INT | FK → users.id |
-| order_item_id | INT | FK → order_items.id |
-| product_id | INT | FK → products.id |
-| status | ENUM('pending','received','diagnosing','repairing','waiting_parts','completed','returned','rejected') | DEFAULT 'pending' |
-| issue_description | TEXT | NOT NULL |
-| diagnosis | TEXT | NULL |
-| resolution | TEXT | NULL |
-| assigned_to | INT | FK → users.id (technician), NULL |
-| estimated_days | INT | NULL |
-| priority | ENUM('low','medium','high','urgent') | DEFAULT 'medium' |
-| received_at | DATETIME | NULL |
-| completed_at | DATETIME | NULL |
-| returned_at | DATETIME | NULL |
-| created_at | DATETIME | DEFAULT NOW() |
-| updated_at | DATETIME | ON UPDATE NOW() |
+
+| Column            | Type                                                                                                  | Constraints                      |
+| ----------------- | ----------------------------------------------------------------------------------------------------- | -------------------------------- |
+| id                | INT                                                                                                   | PK, AUTO_INCREMENT               |
+| ticket_code       | VARCHAR(20)                                                                                           | UNIQUE, NOT NULL                 |
+| user_id           | INT                                                                                                   | FK → users.id                    |
+| order_item_id     | INT                                                                                                   | FK → order_items.id              |
+| product_id        | INT                                                                                                   | FK → products.id                 |
+| status            | ENUM('pending','received','diagnosing','repairing','waiting_parts','completed','returned','rejected') | DEFAULT 'pending'                |
+| issue_description | TEXT                                                                                                  | NOT NULL                         |
+| diagnosis         | TEXT                                                                                                  | NULL                             |
+| resolution        | TEXT                                                                                                  | NULL                             |
+| assigned_to       | INT                                                                                                   | FK → users.id (technician), NULL |
+| estimated_days    | INT                                                                                                   | NULL                             |
+| priority          | ENUM('low','medium','high','urgent')                                                                  | DEFAULT 'medium'                 |
+| received_at       | DATETIME                                                                                              | NULL                             |
+| completed_at      | DATETIME                                                                                              | NULL                             |
+| returned_at       | DATETIME                                                                                              | NULL                             |
+| created_at        | DATETIME                                                                                              | DEFAULT NOW()                    |
+| updated_at        | DATETIME                                                                                              | ON UPDATE NOW()                  |
 
 #### `repair_logs`
-| Column | Type | Constraints |
-|--------|------|-------------|
-| id | INT | PK, AUTO_INCREMENT |
-| ticket_id | INT | FK → warranty_tickets.id |
-| status | VARCHAR(50) | NOT NULL |
-| note | TEXT | NULL |
-| performed_by | INT | FK → users.id |
-| created_at | DATETIME | DEFAULT NOW() |
+
+| Column       | Type        | Constraints              |
+| ------------ | ----------- | ------------------------ |
+| id           | INT         | PK, AUTO_INCREMENT       |
+| ticket_id    | INT         | FK → warranty_tickets.id |
+| status       | VARCHAR(50) | NOT NULL                 |
+| note         | TEXT        | NULL                     |
+| performed_by | INT         | FK → users.id            |
+| created_at   | DATETIME    | DEFAULT NOW()            |
 
 #### `reviews`
-| Column | Type | Constraints |
-|--------|------|-------------|
-| id | INT | PK, AUTO_INCREMENT |
-| product_id | INT | FK → products.id |
-| user_id | INT | FK → users.id |
-| order_item_id | INT | FK → order_items.id |
-| rating | TINYINT | NOT NULL, CHECK 1-5 |
-| comment | TEXT | NULL |
-| images | JSON | NULL |
-| is_verified | BOOLEAN | DEFAULT false |
-| created_at | DATETIME | DEFAULT NOW() |
-| UNIQUE(user_id, order_item_id) | | |
+
+| Column                         | Type     | Constraints         |
+| ------------------------------ | -------- | ------------------- |
+| id                             | INT      | PK, AUTO_INCREMENT  |
+| product_id                     | INT      | FK → products.id    |
+| user_id                        | INT      | FK → users.id       |
+| order_item_id                  | INT      | FK → order_items.id |
+| rating                         | TINYINT  | NOT NULL, CHECK 1-5 |
+| comment                        | TEXT     | NULL                |
+| images                         | JSON     | NULL                |
+| is_verified                    | BOOLEAN  | DEFAULT false       |
+| created_at                     | DATETIME | DEFAULT NOW()       |
+| UNIQUE(user_id, order_item_id) |          |                     |
 
 #### `suppliers`
-| Column | Type | Constraints |
-|--------|------|-------------|
-| id | INT | PK, AUTO_INCREMENT |
-| name | VARCHAR(255) | NOT NULL |
-| contact_name | VARCHAR(100) | NULL |
-| email | VARCHAR(255) | NULL |
-| phone | VARCHAR(20) | NULL |
-| address | TEXT | NULL |
-| is_active | BOOLEAN | DEFAULT true |
-| created_at | DATETIME | DEFAULT NOW() |
+
+| Column       | Type         | Constraints        |
+| ------------ | ------------ | ------------------ |
+| id           | INT          | PK, AUTO_INCREMENT |
+| name         | VARCHAR(255) | NOT NULL           |
+| contact_name | VARCHAR(100) | NULL               |
+| email        | VARCHAR(255) | NULL               |
+| phone        | VARCHAR(20)  | NULL               |
+| address      | TEXT         | NULL               |
+| is_active    | BOOLEAN      | DEFAULT true       |
+| created_at   | DATETIME     | DEFAULT NOW()      |
 
 #### `notifications`
-| Column | Type | Constraints |
-|--------|------|-------------|
-| id | INT | PK, AUTO_INCREMENT |
-| user_id | INT | FK → users.id |
-| type | ENUM('order','payment','shipping','warranty','system','stock') | NOT NULL |
-| title | VARCHAR(255) | NOT NULL |
-| content | TEXT | NOT NULL |
-| data | JSON | NULL (reference link, etc.) |
-| is_read | BOOLEAN | DEFAULT false |
-| created_at | DATETIME | DEFAULT NOW() |
+
+| Column     | Type                                                           | Constraints                 |
+| ---------- | -------------------------------------------------------------- | --------------------------- |
+| id         | INT                                                            | PK, AUTO_INCREMENT          |
+| user_id    | INT                                                            | FK → users.id               |
+| type       | ENUM('order','payment','shipping','warranty','system','stock') | NOT NULL                    |
+| title      | VARCHAR(255)                                                   | NOT NULL                    |
+| content    | TEXT                                                           | NOT NULL                    |
+| data       | JSON                                                           | NULL (reference link, etc.) |
+| is_read    | BOOLEAN                                                        | DEFAULT false               |
+| created_at | DATETIME                                                       | DEFAULT NOW()               |
 
 #### `audit_logs`
-| Column | Type | Constraints |
-|--------|------|-------------|
-| id | INT | PK, AUTO_INCREMENT |
-| user_id | INT | FK → users.id, NULL |
-| action | VARCHAR(100) | NOT NULL |
-| entity_type | VARCHAR(50) | NOT NULL |
-| entity_id | INT | NULL |
-| old_data | JSON | NULL |
-| new_data | JSON | NULL |
-| ip_address | VARCHAR(45) | NULL |
-| user_agent | TEXT | NULL |
-| created_at | DATETIME | DEFAULT NOW() |
+
+| Column      | Type         | Constraints         |
+| ----------- | ------------ | ------------------- |
+| id          | INT          | PK, AUTO_INCREMENT  |
+| user_id     | INT          | FK → users.id, NULL |
+| action      | VARCHAR(100) | NOT NULL            |
+| entity_type | VARCHAR(50)  | NOT NULL            |
+| entity_id   | INT          | NULL                |
+| old_data    | JSON         | NULL                |
+| new_data    | JSON         | NULL                |
+| ip_address  | VARCHAR(45)  | NULL                |
+| user_agent  | TEXT         | NULL                |
+| created_at  | DATETIME     | DEFAULT NOW()       |
 
 ---
 
@@ -704,265 +914,288 @@ UploadModule ──────────────────────�
 
 ### Module Details
 
-| Module | Entities | Key Logic |
-|--------|----------|-----------|
-| **AuthModule** | — | JWT, Refresh Token, Google OAuth, Redis revocation, Email verify, Forgot password |
-| **UsersModule** | users, addresses | CRUD users, profile, address management |
-| **CategoriesModule** | categories | Tree structure categories, CRUD |
-| **BrandsModule** | brands | Brand CRUD |
-| **ProductsModule** | products, product_images, product_specs | Full product CRUD, search, filter, sort, pagination |
-| **InventoryModule** | inventory, stock_movements | Stock reservation, import/export, low-stock alert, RMA |
-| **CartModule** | carts, cart_items | Add/remove/update cart, cart validation |
-| **OrdersModule** | orders, order_items | Create order, status workflow, cancel, refund |
-| **PaymentsModule** | payments | VietQR/MoMo/COD fake gateway, webhook pattern, payment status |
-| **ShippingModule** | — (embedded in orders) | Shipping fee calculation, tracking |
-| **WarrantyModule** | warranty_tickets, repair_logs | Ticket CRUD, assign technician, status workflow |
-| **PcBuildModule** | compatibility_rules | Compatibility validation engine, suggest components |
-| **ReviewsModule** | reviews | CRUD reviews, verified purchase check |
-| **SuppliersModule** | suppliers | Supplier CRUD, link to products |
-| **NotificationsModule** | notifications | BullMQ queue, Socket.IO realtime, email (Brevo) |
-| **DashboardModule** | — (aggregate queries) | Revenue, orders, top products, charts data |
-| **UploadModule** | — | Cloudinary upload images |
+| Module                  | Entities                                | Key Logic                                                                         |
+| ----------------------- | --------------------------------------- | --------------------------------------------------------------------------------- |
+| **AuthModule**          | —                                       | JWT, Refresh Token, Google OAuth, Redis revocation, Email verify, Forgot password |
+| **UsersModule**         | users, addresses                        | CRUD users, profile, address management                                           |
+| **CategoriesModule**    | categories                              | Tree structure categories, CRUD                                                   |
+| **BrandsModule**        | brands                                  | Brand CRUD                                                                        |
+| **ProductsModule**      | products, product_images, product_specs | Full product CRUD, search, filter, sort, pagination                               |
+| **InventoryModule**     | inventory, stock_movements              | Stock reservation, import/export, low-stock alert, RMA                            |
+| **CartModule**          | carts, cart_items                       | Add/remove/update cart, cart validation                                           |
+| **OrdersModule**        | orders, order_items                     | Create order, status workflow, cancel, refund                                     |
+| **PaymentsModule**      | payments                                | VietQR/MoMo/COD fake gateway, webhook pattern, payment status                     |
+| **ShippingModule**      | — (embedded in orders)                  | Shipping fee calculation, tracking                                                |
+| **WarrantyModule**      | warranty_tickets, repair_logs           | Ticket CRUD, assign technician, status workflow                                   |
+| **PcBuildModule**       | compatibility_rules                     | Compatibility validation engine, suggest components                               |
+| **ReviewsModule**       | reviews                                 | CRUD reviews, verified purchase check                                             |
+| **SuppliersModule**     | suppliers                               | Supplier CRUD, link to products                                                   |
+| **NotificationsModule** | notifications                           | BullMQ queue, Socket.IO realtime, email (Brevo)                                   |
+| **DashboardModule**     | — (aggregate queries)                   | Revenue, orders, top products, charts data                                        |
+| **UploadModule**        | —                                       | Cloudinary upload images                                                          |
 
 ---
 
 ## 4. API ENDPOINTS
 
 ### Auth (`/api/auth`)
-| Method | Endpoint | Access | Description |
-|--------|----------|--------|-------------|
-| POST | /register | Public | Đăng ký tài khoản |
-| POST | /login | Public | Đăng nhập |
-| POST | /logout | Auth | Đăng xuất (revoke token) |
-| POST | /refresh | Public | Refresh access token |
-| GET | /google | Public | Google OAuth redirect |
-| GET | /google/callback | Public | Google OAuth callback |
-| POST | /forgot-password | Public | Gửi email reset password |
-| POST | /reset-password | Public | Reset password bằng token |
-| POST | /verify-email | Public | Verify email bằng token |
-| GET | /me | Auth | Lấy thông tin user hiện tại |
+
+| Method | Endpoint         | Access | Description                 |
+| ------ | ---------------- | ------ | --------------------------- |
+| POST   | /register        | Public | Đăng ký tài khoản           |
+| POST   | /login           | Public | Đăng nhập                   |
+| POST   | /logout          | Auth   | Đăng xuất (revoke token)    |
+| POST   | /refresh         | Public | Refresh access token        |
+| GET    | /google          | Public | Google OAuth redirect       |
+| GET    | /google/callback | Public | Google OAuth callback       |
+| POST   | /forgot-password | Public | Gửi email reset password    |
+| POST   | /reset-password  | Public | Reset password bằng token   |
+| POST   | /verify-email    | Public | Verify email bằng token     |
+| GET    | /me              | Auth   | Lấy thông tin user hiện tại |
 
 ### Users (`/api/users`)
-| Method | Endpoint | Access | Description |
-|--------|----------|--------|-------------|
-| GET | / | Admin | Danh sách users (paginated) |
-| GET | /:id | Admin | Chi tiết user |
-| PATCH | /:id | Admin | Cập nhật user (role, status) |
-| DELETE | /:id | Admin | Xoá user (soft delete) |
-| PATCH | /profile | Auth | Cập nhật profile cá nhân |
-| POST | /addresses | Auth | Thêm địa chỉ |
-| GET | /addresses | Auth | Danh sách địa chỉ |
-| PATCH | /addresses/:id | Auth | Cập nhật địa chỉ |
-| DELETE | /addresses/:id | Auth | Xoá địa chỉ |
+
+| Method | Endpoint       | Access | Description                  |
+| ------ | -------------- | ------ | ---------------------------- |
+| GET    | /              | Admin  | Danh sách users (paginated)  |
+| GET    | /:id           | Admin  | Chi tiết user                |
+| PATCH  | /:id           | Admin  | Cập nhật user (role, status) |
+| DELETE | /:id           | Admin  | Xoá user (soft delete)       |
+| PATCH  | /profile       | Auth   | Cập nhật profile cá nhân     |
+| POST   | /addresses     | Auth   | Thêm địa chỉ                 |
+| GET    | /addresses     | Auth   | Danh sách địa chỉ            |
+| PATCH  | /addresses/:id | Auth   | Cập nhật địa chỉ             |
+| DELETE | /addresses/:id | Auth   | Xoá địa chỉ                  |
 
 ### Categories (`/api/categories`)
-| Method | Endpoint | Access | Description |
-|--------|----------|--------|-------------|
-| GET | / | Public | Danh sách categories (tree) |
-| GET | /:slug | Public | Chi tiết category |
-| POST | / | Admin | Tạo category |
-| PATCH | /:id | Admin | Cập nhật category |
-| DELETE | /:id | Admin | Xoá category |
+
+| Method | Endpoint | Access | Description                 |
+| ------ | -------- | ------ | --------------------------- |
+| GET    | /        | Public | Danh sách categories (tree) |
+| GET    | /:slug   | Public | Chi tiết category           |
+| POST   | /        | Admin  | Tạo category                |
+| PATCH  | /:id     | Admin  | Cập nhật category           |
+| DELETE | /:id     | Admin  | Xoá category                |
 
 ### Brands (`/api/brands`)
-| Method | Endpoint | Access | Description |
-|--------|----------|--------|-------------|
-| GET | / | Public | Danh sách brands |
-| POST | / | Admin | Tạo brand |
-| PATCH | /:id | Admin | Cập nhật brand |
-| DELETE | /:id | Admin | Xoá brand |
+
+| Method | Endpoint | Access | Description      |
+| ------ | -------- | ------ | ---------------- |
+| GET    | /        | Public | Danh sách brands |
+| POST   | /        | Admin  | Tạo brand        |
+| PATCH  | /:id     | Admin  | Cập nhật brand   |
+| DELETE | /:id     | Admin  | Xoá brand        |
 
 ### Products (`/api/products`)
-| Method | Endpoint | Access | Description |
-|--------|----------|--------|-------------|
-| GET | / | Public | Danh sách sản phẩm (search, filter, sort, paginate) |
-| GET | /featured | Public | Sản phẩm nổi bật |
-| GET | /:slug | Public | Chi tiết sản phẩm |
-| POST | / | Admin | Tạo sản phẩm |
-| PATCH | /:id | Admin | Cập nhật sản phẩm |
-| DELETE | /:id | Admin | Xoá sản phẩm |
-| POST | /:id/specs | Admin | Thêm/cập nhật specs |
-| POST | /:id/images | Admin | Upload ảnh sản phẩm |
-| DELETE | /:id/images/:imageId | Admin | Xoá ảnh sản phẩm |
+
+| Method | Endpoint             | Access | Description                                         |
+| ------ | -------------------- | ------ | --------------------------------------------------- |
+| GET    | /                    | Public | Danh sách sản phẩm (search, filter, sort, paginate) |
+| GET    | /featured            | Public | Sản phẩm nổi bật                                    |
+| GET    | /:slug               | Public | Chi tiết sản phẩm                                   |
+| POST   | /                    | Admin  | Tạo sản phẩm                                        |
+| PATCH  | /:id                 | Admin  | Cập nhật sản phẩm                                   |
+| DELETE | /:id                 | Admin  | Xoá sản phẩm                                        |
+| POST   | /:id/specs           | Admin  | Thêm/cập nhật specs                                 |
+| POST   | /:id/images          | Admin  | Upload ảnh sản phẩm                                 |
+| DELETE | /:id/images/:imageId | Admin  | Xoá ảnh sản phẩm                                    |
 
 ### Cart (`/api/cart`)
-| Method | Endpoint | Access | Description |
-|--------|----------|--------|-------------|
-| GET | / | Auth | Lấy giỏ hàng |
-| POST | /items | Auth | Thêm sản phẩm vào giỏ |
-| PATCH | /items/:id | Auth | Cập nhật số lượng |
-| DELETE | /items/:id | Auth | Xoá item khỏi giỏ |
-| DELETE | / | Auth | Xoá toàn bộ giỏ |
+
+| Method | Endpoint   | Access | Description           |
+| ------ | ---------- | ------ | --------------------- |
+| GET    | /          | Auth   | Lấy giỏ hàng          |
+| POST   | /items     | Auth   | Thêm sản phẩm vào giỏ |
+| PATCH  | /items/:id | Auth   | Cập nhật số lượng     |
+| DELETE | /items/:id | Auth   | Xoá item khỏi giỏ     |
+| DELETE | /          | Auth   | Xoá toàn bộ giỏ       |
 
 ### Orders (`/api/orders`)
-| Method | Endpoint | Access | Description |
-|--------|----------|--------|-------------|
-| POST | / | Auth | Tạo đơn hàng (checkout) |
-| GET | / | Auth | Danh sách đơn hàng (user's own) |
-| GET | /all | Staff, Admin | Tất cả đơn hàng (paginated) |
-| GET | /:id | Auth | Chi tiết đơn hàng |
-| PATCH | /:id/status | Staff, Admin | Cập nhật trạng thái |
-| PATCH | /:id/confirm | Staff, Admin | Xác nhận đơn hàng |
-| POST | /:id/cancel | Auth | Hủy đơn hàng |
-| POST | /:id/refund | Staff, Admin | Hoàn tiền |
+
+| Method | Endpoint     | Access       | Description                     |
+| ------ | ------------ | ------------ | ------------------------------- |
+| POST   | /            | Auth         | Tạo đơn hàng (checkout)         |
+| GET    | /            | Auth         | Danh sách đơn hàng (user's own) |
+| GET    | /all         | Staff, Admin | Tất cả đơn hàng (paginated)     |
+| GET    | /:id         | Auth         | Chi tiết đơn hàng               |
+| PATCH  | /:id/status  | Staff, Admin | Cập nhật trạng thái             |
+| PATCH  | /:id/confirm | Staff, Admin | Xác nhận đơn hàng               |
+| POST   | /:id/cancel  | Auth         | Hủy đơn hàng                    |
+| POST   | /:id/refund  | Staff, Admin | Hoàn tiền                       |
 
 ### Payments (`/api/payments`)
-| Method | Endpoint | Access | Description |
-|--------|----------|--------|-------------|
-| POST | /create | Auth | Tạo thanh toán |
-| POST | /webhook/vietqr | Public | Webhook VietQR callback |
-| POST | /webhook/momo | Public | Webhook MoMo callback |
-| GET | /:orderId/status | Auth | Kiểm tra trạng thái thanh toán |
-| POST | /simulate/:orderId | Admin | Simulate payment success (dev) |
+
+| Method | Endpoint           | Access | Description                    |
+| ------ | ------------------ | ------ | ------------------------------ |
+| POST   | /create            | Auth   | Tạo thanh toán                 |
+| POST   | /webhook/vietqr    | Public | Webhook VietQR callback        |
+| POST   | /webhook/momo      | Public | Webhook MoMo callback          |
+| GET    | /:orderId/status   | Auth   | Kiểm tra trạng thái thanh toán |
+| POST   | /simulate/:orderId | Admin  | Simulate payment success (dev) |
 
 ### Inventory (`/api/inventory`)
-| Method | Endpoint | Access | Description |
-|--------|----------|--------|-------------|
-| GET | / | Warehouse, Admin | Danh sách tồn kho |
-| GET | /:productId | Warehouse, Admin | Chi tiết tồn kho sản phẩm |
-| POST | /import | Warehouse, Admin | Nhập hàng |
-| POST | /export | Warehouse, Admin | Xuất hàng |
-| POST | /adjust | Warehouse, Admin | Điều chỉnh kho |
-| GET | /low-stock | Warehouse, Admin | Sản phẩm sắp hết hàng |
-| GET | /movements | Warehouse, Admin | Lịch sử xuất nhập kho |
-| GET | /movements/:productId | Warehouse, Admin | Lịch sử theo sản phẩm |
+
+| Method | Endpoint              | Access           | Description               |
+| ------ | --------------------- | ---------------- | ------------------------- |
+| GET    | /                     | Warehouse, Admin | Danh sách tồn kho         |
+| GET    | /:productId           | Warehouse, Admin | Chi tiết tồn kho sản phẩm |
+| POST   | /import               | Warehouse, Admin | Nhập hàng                 |
+| POST   | /export               | Warehouse, Admin | Xuất hàng                 |
+| POST   | /adjust               | Warehouse, Admin | Điều chỉnh kho            |
+| GET    | /low-stock            | Warehouse, Admin | Sản phẩm sắp hết hàng     |
+| GET    | /movements            | Warehouse, Admin | Lịch sử xuất nhập kho     |
+| GET    | /movements/:productId | Warehouse, Admin | Lịch sử theo sản phẩm     |
 
 ### Warranty (`/api/warranty`)
-| Method | Endpoint | Access | Description |
-|--------|----------|--------|-------------|
-| POST | / | Auth | Tạo ticket bảo hành |
-| GET | / | Auth | Danh sách ticket (user's own) |
-| GET | /all | Technician, Admin | Tất cả tickets |
-| GET | /:id | Auth | Chi tiết ticket |
-| PATCH | /:id/assign | Admin | Assign technician |
-| PATCH | /:id/status | Technician, Admin | Cập nhật trạng thái |
-| POST | /:id/logs | Technician | Thêm repair log |
-| GET | /:id/logs | Auth | Xem repair logs |
+
+| Method | Endpoint    | Access            | Description                   |
+| ------ | ----------- | ----------------- | ----------------------------- |
+| POST   | /           | Auth              | Tạo ticket bảo hành           |
+| GET    | /           | Auth              | Danh sách ticket (user's own) |
+| GET    | /all        | Technician, Admin | Tất cả tickets                |
+| GET    | /:id        | Auth              | Chi tiết ticket               |
+| PATCH  | /:id/assign | Admin             | Assign technician             |
+| PATCH  | /:id/status | Technician, Admin | Cập nhật trạng thái           |
+| POST   | /:id/logs   | Technician        | Thêm repair log               |
+| GET    | /:id/logs   | Auth              | Xem repair logs               |
 
 ### PC Build (`/api/pc-build`)
-| Method | Endpoint | Access | Description |
-|--------|----------|--------|-------------|
-| GET | /components/:type | Public | Danh sách linh kiện theo loại |
-| POST | /check | Public | Kiểm tra compatibility |
-| POST | /suggest | Public | Gợi ý linh kiện compatible |
-| GET | /rules | Admin | Danh sách compatibility rules |
-| POST | /rules | Admin | Tạo rule |
-| PATCH | /rules/:id | Admin | Cập nhật rule |
-| DELETE | /rules/:id | Admin | Xoá rule |
+
+| Method | Endpoint          | Access | Description                   |
+| ------ | ----------------- | ------ | ----------------------------- |
+| GET    | /components/:type | Public | Danh sách linh kiện theo loại |
+| POST   | /check            | Public | Kiểm tra compatibility        |
+| POST   | /suggest          | Public | Gợi ý linh kiện compatible    |
+| GET    | /rules            | Admin  | Danh sách compatibility rules |
+| POST   | /rules            | Admin  | Tạo rule                      |
+| PATCH  | /rules/:id        | Admin  | Cập nhật rule                 |
+| DELETE | /rules/:id        | Admin  | Xoá rule                      |
 
 ### Reviews (`/api/reviews`)
-| Method | Endpoint | Access | Description |
-|--------|----------|--------|-------------|
-| GET | /product/:productId | Public | Reviews theo sản phẩm |
-| POST | / | Auth | Tạo review (verified purchase) |
-| PATCH | /:id | Auth (owner) | Sửa review |
-| DELETE | /:id | Auth (owner), Admin | Xoá review |
+
+| Method | Endpoint            | Access              | Description                    |
+| ------ | ------------------- | ------------------- | ------------------------------ |
+| GET    | /product/:productId | Public              | Reviews theo sản phẩm          |
+| POST   | /                   | Auth                | Tạo review (verified purchase) |
+| PATCH  | /:id                | Auth (owner)        | Sửa review                     |
+| DELETE | /:id                | Auth (owner), Admin | Xoá review                     |
 
 ### Suppliers (`/api/suppliers`)
-| Method | Endpoint | Access | Description |
-|--------|----------|--------|-------------|
-| GET | / | Admin | Danh sách suppliers |
-| POST | / | Admin | Tạo supplier |
-| PATCH | /:id | Admin | Cập nhật supplier |
-| DELETE | /:id | Admin | Xoá supplier |
+
+| Method | Endpoint | Access | Description         |
+| ------ | -------- | ------ | ------------------- |
+| GET    | /        | Admin  | Danh sách suppliers |
+| POST   | /        | Admin  | Tạo supplier        |
+| PATCH  | /:id     | Admin  | Cập nhật supplier   |
+| DELETE | /:id     | Admin  | Xoá supplier        |
 
 ### Notifications (`/api/notifications`)
-| Method | Endpoint | Access | Description |
-|--------|----------|--------|-------------|
-| GET | / | Auth | Danh sách thông báo |
-| PATCH | /:id/read | Auth | Đánh dấu đã đọc |
-| PATCH | /read-all | Auth | Đọc tất cả |
-| GET | /unread-count | Auth | Số thông báo chưa đọc |
+
+| Method | Endpoint      | Access | Description           |
+| ------ | ------------- | ------ | --------------------- |
+| GET    | /             | Auth   | Danh sách thông báo   |
+| PATCH  | /:id/read     | Auth   | Đánh dấu đã đọc       |
+| PATCH  | /read-all     | Auth   | Đọc tất cả            |
+| GET    | /unread-count | Auth   | Số thông báo chưa đọc |
 
 ### Shipping (`/api/shipping`)
-| Method | Endpoint | Access | Description |
-|--------|----------|--------|-------------|
-| POST | /calculate | Auth | Tính phí ship |
-| GET | /tracking/:orderId | Auth | Tracking đơn hàng |
+
+| Method | Endpoint           | Access | Description       |
+| ------ | ------------------ | ------ | ----------------- |
+| POST   | /calculate         | Auth   | Tính phí ship     |
+| GET    | /tracking/:orderId | Auth   | Tracking đơn hàng |
 
 ### Dashboard (`/api/dashboard`)
-| Method | Endpoint | Access | Description |
-|--------|----------|--------|-------------|
-| GET | /overview | Admin | Tổng quan (revenue, orders, users) |
-| GET | /revenue | Admin | Doanh thu theo thời gian |
-| GET | /top-products | Admin | Top sản phẩm bán chạy |
-| GET | /order-stats | Admin | Thống kê đơn hàng |
-| GET | /warranty-stats | Admin | Thống kê bảo hành |
-| GET | /inventory-alerts | Admin | Cảnh báo tồn kho |
+
+| Method | Endpoint          | Access | Description                        |
+| ------ | ----------------- | ------ | ---------------------------------- |
+| GET    | /overview         | Admin  | Tổng quan (revenue, orders, users) |
+| GET    | /revenue          | Admin  | Doanh thu theo thời gian           |
+| GET    | /top-products     | Admin  | Top sản phẩm bán chạy              |
+| GET    | /order-stats      | Admin  | Thống kê đơn hàng                  |
+| GET    | /warranty-stats   | Admin  | Thống kê bảo hành                  |
+| GET    | /inventory-alerts | Admin  | Cảnh báo tồn kho                   |
 
 ### Upload (`/api/upload`)
-| Method | Endpoint | Access | Description |
-|--------|----------|--------|-------------|
-| POST | /image | Auth | Upload ảnh lên Cloudinary |
-| DELETE | /image/:publicId | Auth | Xoá ảnh |
+
+| Method | Endpoint         | Access | Description               |
+| ------ | ---------------- | ------ | ------------------------- |
+| POST   | /image           | Auth   | Upload ảnh lên Cloudinary |
+| DELETE | /image/:publicId | Auth   | Xoá ảnh                   |
 
 ---
 
 ## 5. FRONTEND PAGES
 
 ### Customer Pages
-| Page | Route | Description |
-|------|-------|-------------|
-| Home | `/` | Banner, featured products, categories |
-| Products | `/products` | Listing + filter + search + sort |
-| Product Detail | `/products/[slug]` | Specs, images, reviews, add to cart |
-| PC Builder | `/pc-build` | Interactive PC builder |
-| Cart | `/cart` | Cart management |
-| Checkout | `/checkout` | Address, voucher, payment method |
-| Payment | `/checkout/payment` | QR code / MoMo redirect |
-| My Orders | `/orders` | Order list + tracking |
-| Order Detail | `/orders/[id]` | Order detail + status |
-| Warranty | `/warranty` | Submit warranty request |
-| My Warranties | `/warranty/list` | Warranty tickets list |
-| Profile | `/profile` | User info, addresses |
-| Notifications | `/notifications` | Notification list |
+
+| Page           | Route               | Description                           |
+| -------------- | ------------------- | ------------------------------------- |
+| Home           | `/`                 | Banner, featured products, categories |
+| Products       | `/products`         | Listing + filter + search + sort      |
+| Product Detail | `/products/[slug]`  | Specs, images, reviews, add to cart   |
+| PC Builder     | `/pc-build`         | Interactive PC builder                |
+| Cart           | `/cart`             | Cart management                       |
+| Checkout       | `/checkout`         | Address, voucher, payment method      |
+| Payment        | `/checkout/payment` | QR code / MoMo redirect               |
+| My Orders      | `/orders`           | Order list + tracking                 |
+| Order Detail   | `/orders/[id]`      | Order detail + status                 |
+| Warranty       | `/warranty`         | Submit warranty request               |
+| My Warranties  | `/warranty/list`    | Warranty tickets list                 |
+| Profile        | `/profile`          | User info, addresses                  |
+| Notifications  | `/notifications`    | Notification list                     |
 
 ### Auth Pages
-| Page | Route |
-|------|-------|
-| Login | `/login` |
-| Register | `/register` |
+
+| Page            | Route              |
+| --------------- | ------------------ |
+| Login           | `/login`           |
+| Register        | `/register`        |
 | Forgot Password | `/forgot-password` |
-| Reset Password | `/reset-password` |
-| Verify Email | `/verify-email` |
+| Reset Password  | `/reset-password`  |
+| Verify Email    | `/verify-email`    |
 
 ### Staff Panel
-| Page | Route |
-|------|-------|
-| Orders Dashboard | `/staff/orders` |
-| Order Process | `/staff/orders/[id]` |
-| Customer Support | `/staff/customers` |
+
+| Page             | Route                |
+| ---------------- | -------------------- |
+| Orders Dashboard | `/staff/orders`      |
+| Order Process    | `/staff/orders/[id]` |
+| Customer Support | `/staff/customers`   |
 
 ### Technician Panel
-| Page | Route |
-|------|-------|
-| My Tickets | `/technician/tickets` |
-| Ticket Detail | `/technician/tickets/[id]` |
-| Repair History | `/technician/history` |
+
+| Page           | Route                      |
+| -------------- | -------------------------- |
+| My Tickets     | `/technician/tickets`      |
+| Ticket Detail  | `/technician/tickets/[id]` |
+| Repair History | `/technician/history`      |
 
 ### Warehouse Panel
-| Page | Route |
-|------|-------|
-| Stock Overview | `/warehouse/stock` |
-| Import Goods | `/warehouse/import` |
-| Export Goods | `/warehouse/export` |
-| Low Stock Alerts | `/warehouse/alerts` |
+
+| Page             | Route                  |
+| ---------------- | ---------------------- |
+| Stock Overview   | `/warehouse/stock`     |
+| Import Goods     | `/warehouse/import`    |
+| Export Goods     | `/warehouse/export`    |
+| Low Stock Alerts | `/warehouse/alerts`    |
 | Movement History | `/warehouse/movements` |
 
 ### Admin Dashboard
-| Page | Route |
-|------|-------|
-| Dashboard | `/admin/dashboard` |
-| User Management | `/admin/users` |
-| Product Management | `/admin/products` |
+
+| Page                | Route               |
+| ------------------- | ------------------- |
+| Dashboard           | `/admin/dashboard`  |
+| User Management     | `/admin/users`      |
+| Product Management  | `/admin/products`   |
 | Category Management | `/admin/categories` |
-| Order Management | `/admin/orders` |
-| Inventory | `/admin/inventory` |
-| Warranty Management | `/admin/warranty` |
-| Suppliers | `/admin/suppliers` |
-| Vouchers | `/admin/vouchers` |
-| Reports | `/admin/reports` |
-| Settings | `/admin/settings` |
+| Order Management    | `/admin/orders`     |
+| Inventory           | `/admin/inventory`  |
+| Warranty Management | `/admin/warranty`   |
+| Suppliers           | `/admin/suppliers`  |
+| Vouchers            | `/admin/vouchers`   |
+| Reports             | `/admin/reports`    |
+| Settings            | `/admin/settings`   |
 
 ---
 
@@ -972,20 +1205,20 @@ UploadModule ──────────────────────�
 
 **Mục tiêu:** Project skeleton + Auth + User hoàn chỉnh
 
-| Task | Chi tiết | Estimate |
-|------|----------|----------|
-| Project Setup BE | NestJS + TypeORM + MySQL + Redis + Docker Compose | 1 ngày |
-| Project Setup FE | Next.js + TailwindCSS + shadcn/ui + Zustand | 1 ngày |
-| Config Module | Environment config, validation | 0.5 ngày |
-| Database Setup | Data source, migrations cơ bản | 0.5 ngày |
-| Auth Module (BE) | Register, Login, JWT, Refresh Token, Redis revocation | 2 ngày |
-| Google OAuth | Passport Google Strategy | 1 ngày |
-| Email Verify + Forgot Password | Brevo email service | 1 ngày |
-| RBAC Guards | Role guard, Auth guard | 0.5 ngày |
-| User Module (BE) | CRUD, profile, addresses | 1 ngày |
-| Auth Pages (FE) | Login, Register, Forgot password UI | 2 ngày |
-| Global Setup (BE) | Exception filter, validation pipe, interceptors, Swagger | 1 ngày |
-| **Tổng** | | **~11 ngày** |
+| Task                           | Chi tiết                                                 | Estimate     |
+| ------------------------------ | -------------------------------------------------------- | ------------ |
+| Project Setup BE               | NestJS + TypeORM + MySQL + Redis + Docker Compose        | 1 ngày       |
+| Project Setup FE               | Next.js + TailwindCSS + shadcn/ui + Zustand              | 1 ngày       |
+| Config Module                  | Environment config, validation                           | 0.5 ngày     |
+| Database Setup                 | Data source, migrations cơ bản                           | 0.5 ngày     |
+| Auth Module (BE)               | Register, Login, JWT, Refresh Token, Redis revocation    | 2 ngày       |
+| Google OAuth                   | Passport Google Strategy                                 | 1 ngày       |
+| Email Verify + Forgot Password | Brevo email service                                      | 1 ngày       |
+| RBAC Guards                    | Role guard, Auth guard                                   | 0.5 ngày     |
+| User Module (BE)               | CRUD, profile, addresses                                 | 1 ngày       |
+| Auth Pages (FE)                | Login, Register, Forgot password UI                      | 2 ngày       |
+| Global Setup (BE)              | Exception filter, validation pipe, interceptors, Swagger | 1 ngày       |
+| **Tổng**                       |                                                          | **~11 ngày** |
 
 **Deliverable:** Auth system hoàn chỉnh, Swagger docs, Login/Register UI
 
@@ -995,21 +1228,21 @@ UploadModule ──────────────────────�
 
 **Mục tiêu:** Product + Cart + Order hoạt động end-to-end
 
-| Task | Chi tiết | Estimate |
-|------|----------|----------|
-| Category + Brand Module (BE) | CRUD, tree categories | 1 ngày |
-| Product Module (BE) | CRUD, search, filter, sort, pagination, specs, images | 3 ngày |
-| Upload Module | Cloudinary integration | 0.5 ngày |
-| Supplier Module (BE) | CRUD suppliers | 0.5 ngày |
-| Cart Module (BE) | Add, update, remove, validation | 1.5 ngày |
-| Voucher Module (BE) | CRUD vouchers, validate, apply | 1 ngày |
-| Order Module (BE) | Create order, status workflow, cancel | 3 ngày |
-| Shipping Module (BE) | Fee calculation, tracking | 1 ngày |
-| Homepage (FE) | Banner, featured, categories | 2 ngày |
-| Product Pages (FE) | Listing, detail, filters | 3 ngày |
-| Cart + Checkout (FE) | Cart drawer, checkout flow | 2 ngày |
-| Order Pages (FE) | Order list, detail, tracking | 1.5 ngày |
-| **Tổng** | | **~20 ngày** |
+| Task                         | Chi tiết                                              | Estimate     |
+| ---------------------------- | ----------------------------------------------------- | ------------ |
+| Category + Brand Module (BE) | CRUD, tree categories                                 | 1 ngày       |
+| Product Module (BE)          | CRUD, search, filter, sort, pagination, specs, images | 3 ngày       |
+| Upload Module                | Cloudinary integration                                | 0.5 ngày     |
+| Supplier Module (BE)         | CRUD suppliers                                        | 0.5 ngày     |
+| Cart Module (BE)             | Add, update, remove, validation                       | 1.5 ngày     |
+| Voucher Module (BE)          | CRUD vouchers, validate, apply                        | 1 ngày       |
+| Order Module (BE)            | Create order, status workflow, cancel                 | 3 ngày       |
+| Shipping Module (BE)         | Fee calculation, tracking                             | 1 ngày       |
+| Homepage (FE)                | Banner, featured, categories                          | 2 ngày       |
+| Product Pages (FE)           | Listing, detail, filters                              | 3 ngày       |
+| Cart + Checkout (FE)         | Cart drawer, checkout flow                            | 2 ngày       |
+| Order Pages (FE)             | Order list, detail, tracking                          | 1.5 ngày     |
+| **Tổng**                     |                                                       | **~20 ngày** |
 
 **Deliverable:** Khách hàng có thể browse → add to cart → checkout → track order
 
@@ -1019,15 +1252,15 @@ UploadModule ──────────────────────�
 
 **Mục tiêu:** Payment flow + Stock reservation chống bán âm kho
 
-| Task | Chi tiết | Estimate |
-|------|----------|----------|
-| Payment Module (BE) | VietQR, MoMo, COD — fake gateway + webhook pattern | 2 ngày |
-| Stock Reservation System | Reserve on checkout, release on cancel/timeout, confirm on payment | 2 ngày |
-| Inventory Module (BE) | Import, export, adjust, movement history, low-stock alert | 2 ngày |
-| Payment UI (FE) | QR display, MoMo redirect, COD confirm | 1.5 ngày |
-| Warehouse Pages (FE) | Stock overview, import/export forms, alerts | 2 ngày |
-| Cron: Release expired reservations | BullMQ scheduled job | 0.5 ngày |
-| **Tổng** | | **~10 ngày** |
+| Task                               | Chi tiết                                                           | Estimate     |
+| ---------------------------------- | ------------------------------------------------------------------ | ------------ |
+| Payment Module (BE)                | VietQR, MoMo, COD — fake gateway + webhook pattern                 | 2 ngày       |
+| Stock Reservation System           | Reserve on checkout, release on cancel/timeout, confirm on payment | 2 ngày       |
+| Inventory Module (BE)              | Import, export, adjust, movement history, low-stock alert          | 2 ngày       |
+| Payment UI (FE)                    | QR display, MoMo redirect, COD confirm                             | 1.5 ngày     |
+| Warehouse Pages (FE)               | Stock overview, import/export forms, alerts                        | 2 ngày       |
+| Cron: Release expired reservations | BullMQ scheduled job                                               | 0.5 ngày     |
+| **Tổng**                           |                                                                    | **~10 ngày** |
 
 **Deliverable:** Full payment flow, inventory management, stock reservation
 
@@ -1037,16 +1270,16 @@ UploadModule ──────────────────────�
 
 **Mục tiêu:** PC Build + Warranty — feature tạo sự khác biệt
 
-| Task | Chi tiết | Estimate |
-|------|----------|----------|
-| PC Build Module (BE) | Compatibility engine, rules management, suggest | 3 ngày |
-| PC Build UI (FE) | Interactive builder, drag-drop components, compatibility indicator | 3 ngày |
-| Warranty Module (BE) | Ticket CRUD, assign, status workflow, repair logs | 2.5 ngày |
-| Warranty UI (FE) | Submit form, ticket list, status tracking | 2 ngày |
-| Technician Panel (FE) | Ticket management, repair workflow | 1.5 ngày |
-| Review Module (BE) | CRUD, verified purchase, rating calculation | 1 ngày |
-| Review UI (FE) | Review form, review list on product detail | 1 ngày |
-| **Tổng** | | **~14 ngày** |
+| Task                  | Chi tiết                                                           | Estimate     |
+| --------------------- | ------------------------------------------------------------------ | ------------ |
+| PC Build Module (BE)  | Compatibility engine, rules management, suggest                    | 3 ngày       |
+| PC Build UI (FE)      | Interactive builder, drag-drop components, compatibility indicator | 3 ngày       |
+| Warranty Module (BE)  | Ticket CRUD, assign, status workflow, repair logs                  | 2.5 ngày     |
+| Warranty UI (FE)      | Submit form, ticket list, status tracking                          | 2 ngày       |
+| Technician Panel (FE) | Ticket management, repair workflow                                 | 1.5 ngày     |
+| Review Module (BE)    | CRUD, verified purchase, rating calculation                        | 1 ngày       |
+| Review UI (FE)        | Review form, review list on product detail                         | 1 ngày       |
+| **Tổng**              |                                                                    | **~14 ngày** |
 
 **Deliverable:** PC builder engine, warranty system, review system
 
@@ -1056,15 +1289,15 @@ UploadModule ──────────────────────�
 
 **Mục tiêu:** Realtime notifications + Admin analytics
 
-| Task | Chi tiết | Estimate |
-|------|----------|----------|
-| Notification Module (BE) | BullMQ queue, Socket.IO gateway, email service | 2 ngày |
-| Integrate notifications | Order, payment, shipping, warranty events → queue | 1.5 ngày |
-| Notification UI (FE) | Bell icon, dropdown, notification page, realtime | 1.5 ngày |
-| Dashboard Module (BE) | Revenue, orders, top products, warranty stats queries | 2 ngày |
-| Dashboard UI (FE) | Charts (recharts), stats cards, tables | 3 ngày |
-| Staff Panel (FE) | Order processing, customer support pages | 2 ngày |
-| **Tổng** | | **~12 ngày** |
+| Task                     | Chi tiết                                              | Estimate     |
+| ------------------------ | ----------------------------------------------------- | ------------ |
+| Notification Module (BE) | BullMQ queue, Socket.IO gateway, email service        | 2 ngày       |
+| Integrate notifications  | Order, payment, shipping, warranty events → queue     | 1.5 ngày     |
+| Notification UI (FE)     | Bell icon, dropdown, notification page, realtime      | 1.5 ngày     |
+| Dashboard Module (BE)    | Revenue, orders, top products, warranty stats queries | 2 ngày       |
+| Dashboard UI (FE)        | Charts (recharts), stats cards, tables                | 3 ngày       |
+| Staff Panel (FE)         | Order processing, customer support pages              | 2 ngày       |
+| **Tổng**                 |                                                       | **~12 ngày** |
 
 **Deliverable:** Realtime notifications, admin dashboard with charts
 
@@ -1074,20 +1307,20 @@ UploadModule ──────────────────────�
 
 **Mục tiêu:** Security + Logging + Deploy + CI/CD
 
-| Task | Chi tiết | Estimate |
-|------|----------|----------|
-| Security hardening | Input sanitization, XSS, CSRF, secure cookies, rate limiting | 1.5 ngày |
-| Logging | Winston logger, structured logs, audit logs | 1 ngày |
-| Error Monitoring | Sentry integration (BE + FE) | 0.5 ngày |
-| Health Check | Terminus health check endpoint | 0.5 ngày |
-| Docker | Production Dockerfile, docker-compose | 1 ngày |
-| CI/CD | GitHub Actions: lint, test, build, deploy | 1 ngày |
-| Deploy BE | Railway / Render | 0.5 ngày |
-| Deploy FE | Vercel | 0.5 ngày |
-| Deploy DB | Clever Cloud MySQL + Redis Cloud | 0.5 ngày |
-| Testing | Unit tests (services), E2E tests (critical flows) | 3 ngày |
-| Documentation | README, API docs, .env.example | 1 ngày |
-| **Tổng** | | **~11 ngày** |
+| Task               | Chi tiết                                                     | Estimate     |
+| ------------------ | ------------------------------------------------------------ | ------------ |
+| Security hardening | Input sanitization, XSS, CSRF, secure cookies, rate limiting | 1.5 ngày     |
+| Logging            | Winston logger, structured logs, audit logs                  | 1 ngày       |
+| Error Monitoring   | Sentry integration (BE + FE)                                 | 0.5 ngày     |
+| Health Check       | Terminus health check endpoint                               | 0.5 ngày     |
+| Docker             | Production Dockerfile, docker-compose                        | 1 ngày       |
+| CI/CD              | GitHub Actions: lint, test, build, deploy                    | 1 ngày       |
+| Deploy BE          | Railway / Render                                             | 0.5 ngày     |
+| Deploy FE          | Vercel                                                       | 0.5 ngày     |
+| Deploy DB          | Clever Cloud MySQL + Redis Cloud                             | 0.5 ngày     |
+| Testing            | Unit tests (services), E2E tests (critical flows)            | 3 ngày       |
+| Documentation      | README, API docs, .env.example                               | 1 ngày       |
+| **Tổng**           |                                                              | **~11 ngày** |
 
 **Deliverable:** Production system chạy trên internet, CI/CD, monitoring
 
@@ -1111,58 +1344,61 @@ Tổng cộng: ~14 tuần (~3.5 tháng)
 ## 7. TECH STACK CHI TIẾT
 
 ### Backend
-| Tech | Purpose | Version |
-|------|---------|---------|
-| **NestJS** | Framework | 10.x |
-| **TypeScript** | Language | 5.x |
-| **TypeORM** | ORM | 0.3.x |
-| **MySQL** | Database | 8.x |
-| **Redis** | Cache + Token Store + Queue | 7.x |
-| **BullMQ** | Job Queue | 5.x |
-| **Socket.IO** | Realtime | 4.x |
-| **Passport.js** | Auth strategies | 0.7.x |
-| **JWT** | Token auth | — |
-| **class-validator** | DTO validation | — |
-| **class-transformer** | DTO transform | — |
-| **@nestjs/swagger** | API docs | — |
-| **@nestjs/throttler** | Rate limiting | — |
-| **@nestjs/terminus** | Health check | — |
-| **Cloudinary** | Image upload | — |
-| **Brevo (Sendinblue)** | Email | — |
-| **Winston** | Logger | 3.x |
-| **Sentry** | Error tracking | — |
-| **bcrypt** | Password hash | — |
-| **helmet** | Security headers | — |
+
+| Tech                   | Purpose                     | Version |
+| ---------------------- | --------------------------- | ------- |
+| **NestJS**             | Framework                   | 10.x    |
+| **TypeScript**         | Language                    | 5.x     |
+| **TypeORM**            | ORM                         | 0.3.x   |
+| **MySQL**              | Database                    | 8.x     |
+| **Redis**              | Cache + Token Store + Queue | 7.x     |
+| **BullMQ**             | Job Queue                   | 5.x     |
+| **Socket.IO**          | Realtime                    | 4.x     |
+| **Passport.js**        | Auth strategies             | 0.7.x   |
+| **JWT**                | Token auth                  | —       |
+| **class-validator**    | DTO validation              | —       |
+| **class-transformer**  | DTO transform               | —       |
+| **@nestjs/swagger**    | API docs                    | —       |
+| **@nestjs/throttler**  | Rate limiting               | —       |
+| **@nestjs/terminus**   | Health check                | —       |
+| **Cloudinary**         | Image upload                | —       |
+| **Brevo (Sendinblue)** | Email                       | —       |
+| **Winston**            | Logger                      | 3.x     |
+| **Sentry**             | Error tracking              | —       |
+| **bcrypt**             | Password hash               | —       |
+| **helmet**             | Security headers            | —       |
 
 ### Frontend
-| Tech | Purpose | Version |
-|------|---------|---------|
-| **Next.js** | Framework (App Router) | 14.x |
-| **TypeScript** | Language | 5.x |
-| **TailwindCSS** | Styling | 3.x |
-| **shadcn/ui** | UI Components | latest |
-| **Zustand** | State management | 4.x |
-| **Axios** | HTTP client | 1.x |
-| **React Hook Form** | Form handling | 7.x |
-| **Zod** | Form validation | 3.x |
-| **Recharts** | Charts | 2.x |
-| **Lucide React** | Icons | latest |
-| **Socket.IO Client** | Realtime | 4.x |
-| **next-auth** | Auth (optional) | 4.x |
-| **react-hot-toast** | Toast notifications | — |
-| **@tanstack/react-query** | Server state | 5.x |
+
+| Tech                      | Purpose                | Version |
+| ------------------------- | ---------------------- | ------- |
+| **Next.js**               | Framework (App Router) | 14.x    |
+| **TypeScript**            | Language               | 5.x     |
+| **TailwindCSS**           | Styling                | 3.x     |
+| **shadcn/ui**             | UI Components          | latest  |
+| **Zustand**               | State management       | 4.x     |
+| **Axios**                 | HTTP client            | 1.x     |
+| **React Hook Form**       | Form handling          | 7.x     |
+| **Zod**                   | Form validation        | 3.x     |
+| **Recharts**              | Charts                 | 2.x     |
+| **Lucide React**          | Icons                  | latest  |
+| **Socket.IO Client**      | Realtime               | 4.x     |
+| **next-auth**             | Auth (optional)        | 4.x     |
+| **react-hot-toast**       | Toast notifications    | —       |
+| **@tanstack/react-query** | Server state           | 5.x     |
 
 ### DevOps
-| Tech | Purpose |
-|------|---------|
-| **Docker** | Containerization |
-| **Docker Compose** | Local dev environment |
-| **GitHub Actions** | CI/CD |
-| **Render / Railway** | Backend hosting |
-| **Vercel** | Frontend hosting |
-| **Clever Cloud** | MySQL hosting |
-| **Redis Cloud** | Redis hosting |
-| **Cloudinary** | Image CDN |
+
+| Tech                 | Purpose               |
+| -------------------- | --------------------- |
+| **Docker**           | Containerization      |
+| **Docker Compose**   | Local dev environment |
+| **GitHub Actions**   | CI/CD                 |
+| **Render / Railway** | Backend hosting       |
+| **Vercel**           | Frontend hosting      |
+| **Clever Cloud**     | MySQL hosting         |
+| **Redis Cloud**      | Redis hosting         |
+| **Cloudinary**       | Image CDN             |
 
 ---
 
@@ -1174,7 +1410,7 @@ Tổng cộng: ~14 tuần (~3.5 tháng)
 services:
   mysql:
     image: mysql:8
-    ports: ["3306:3306"]
+    ports: ['3306:3306']
     environment:
       MYSQL_ROOT_PASSWORD: root
       MYSQL_DATABASE: laptop_store
@@ -1182,11 +1418,11 @@ services:
 
   redis:
     image: redis:7-alpine
-    ports: ["6379:6379"]
+    ports: ['6379:6379']
 
   backend:
     build: ./BeShopLapTop
-    ports: ["3001:3001"]
+    ports: ['3001:3001']
     depends_on: [mysql, redis]
     env_file: .env
 
@@ -1352,12 +1588,12 @@ Input: Selected components { cpu, mainboard, ram, vga, psu, case }
 
 ## 10. TESTING STRATEGY
 
-| Layer | Tool | Scope |
-|-------|------|-------|
-| **Unit Tests** | Jest | Services (business logic), Utils |
-| **Integration Tests** | Jest + Supertest | Controller → Service → DB |
-| **E2E Tests** | Jest + Supertest | Full API flows (auth, order, payment) |
-| **Frontend Tests** | Vitest + Testing Library | Components, hooks |
+| Layer                 | Tool                     | Scope                                 |
+| --------------------- | ------------------------ | ------------------------------------- |
+| **Unit Tests**        | Jest                     | Services (business logic), Utils      |
+| **Integration Tests** | Jest + Supertest         | Controller → Service → DB             |
+| **E2E Tests**         | Jest + Supertest         | Full API flows (auth, order, payment) |
+| **Frontend Tests**    | Vitest + Testing Library | Components, hooks                     |
 
 ### Critical Test Flows
 
