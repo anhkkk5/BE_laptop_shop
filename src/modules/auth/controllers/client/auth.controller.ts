@@ -52,9 +52,7 @@ export class AuthController {
   }
 
   @Get('me')
-  async getMe(
-    @CurrentUser() user: { id: number; email: string; role: string },
-  ) {
+  getMe(@CurrentUser() user: { id: number; email: string; role: string }) {
     return user;
   }
 

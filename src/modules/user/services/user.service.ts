@@ -5,7 +5,10 @@ import {
 } from '@nestjs/common';
 import { UserRepository } from '../repositories/user.repository.js';
 import { CreateUserDto } from '../dtos/create-user.dto.js';
-import { UpdateProfileDto, AdminUpdateUserDto } from '../dtos/update-user.dto.js';
+import {
+  UpdateProfileDto,
+  AdminUpdateUserDto,
+} from '../dtos/update-user.dto.js';
 import { User } from '../entities/user.entity.js';
 
 @Injectable()
@@ -46,7 +49,10 @@ export class UserService {
     return this.userRepository.findAll(page, limit);
   }
 
-  async updateRefreshToken(id: number, refreshToken: string | null): Promise<void> {
+  async updateRefreshToken(
+    id: number,
+    refreshToken: string | null,
+  ): Promise<void> {
     await this.userRepository.update(id, { refreshToken });
   }
 

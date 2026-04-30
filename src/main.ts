@@ -1,6 +1,5 @@
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import helmet from 'helmet';
 import { AppModule } from './app.module.js';
@@ -9,7 +8,6 @@ import { TransformInterceptor } from './common/interceptors/transform.intercepto
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
-  const configService = app.get(ConfigService);
 
   const port = parseInt(process.env.PORT || '3100', 10);
   const apiPrefix = process.env.API_PREFIX || 'api/v1';
@@ -59,4 +57,4 @@ async function bootstrap() {
   console.log(`📚 Swagger docs: http://localhost:${port}/${apiPrefix}/docs`);
 }
 
-bootstrap();
+void bootstrap();

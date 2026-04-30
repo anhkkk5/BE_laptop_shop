@@ -2,7 +2,6 @@ import {
   Injectable,
   UnauthorizedException,
   ConflictException,
-  BadRequestException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
@@ -75,7 +74,7 @@ export class AuthService {
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) return null;
 
-    const { password: _, refreshToken: __, ...result } = user;
+    const { password: _pwd, refreshToken: _rt, ...result } = user;
     return result;
   }
 
@@ -129,8 +128,8 @@ export class AuthService {
 
       if (user) {
         await this.userService.adminUpdate(user.id, {
-          ...({ googleId: googleUser.googleId } as any),
-        });
+          googleId: googleUser.googleId,
+        } as unknown as Parameters<typeof this.userService.adminUpdate>[1]);
         user = await this.userService.findById(user.id);
       } else {
         user = await this.userService.create({
@@ -156,14 +155,17 @@ export class AuthService {
 
     const accessToken = this.jwtService.sign(
       payload as unknown as Record<string, unknown>,
-      { secret: this.accessSecret, expiresIn: this.accessExpiresIn as any },
+      {
+        secret: this.accessSecret,
+        expiresIn: this.accessExpiresIn as unknown as number,
+      },
     );
 
     const refreshToken = this.jwtService.sign(
       payload as unknown as Record<string, unknown>,
       {
         secret: this.refreshSecret,
-        expiresIn: `${this.refreshTtlSeconds}s` as any,
+        expiresIn: `${this.refreshTtlSeconds}s` as unknown as number,
       },
     );
 

@@ -18,8 +18,14 @@ export class AdminSeed implements OnModuleInit {
   }
 
   private async seedAdmin() {
-    const email = this.configService.get<string>('ADMIN_EMAIL', 'admin@example.com');
-    const password = this.configService.get<string>('ADMIN_PASSWORD', 'Admin@123');
+    const email = this.configService.get<string>(
+      'ADMIN_EMAIL',
+      'admin@example.com',
+    );
+    const password = this.configService.get<string>(
+      'ADMIN_PASSWORD',
+      'Admin@123',
+    );
     const name = this.configService.get<string>('ADMIN_NAME', 'Admin');
 
     const existing = await this.userService.findByEmail(email);

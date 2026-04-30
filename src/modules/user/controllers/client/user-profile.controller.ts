@@ -7,13 +7,15 @@ import {
   Param,
   Delete,
   ParseIntPipe,
-  Query,
 } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { UserService } from '../../services/user.service.js';
 import { AddressService } from '../../services/address.service.js';
 import { UpdateProfileDto } from '../../dtos/update-user.dto.js';
-import { CreateAddressDto, UpdateAddressDto } from '../../dtos/create-address.dto.js';
+import {
+  CreateAddressDto,
+  UpdateAddressDto,
+} from '../../dtos/create-address.dto.js';
 import { CurrentUser } from '../../../../common/decorators/index.js';
 
 @ApiTags('Client - Profile')
@@ -28,7 +30,7 @@ export class UserProfileController {
   @Get('profile')
   async getProfile(@CurrentUser('id') userId: number) {
     const user = await this.userService.findById(userId);
-    const { password, refreshToken, ...result } = user;
+    const { password: _pwd, refreshToken: _rt, ...result } = user;
     return result;
   }
 

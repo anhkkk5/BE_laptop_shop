@@ -29,7 +29,7 @@ export class UserAdminController {
   @Get(':id')
   async findOne(@Param('id', ParseIntPipe) id: number) {
     const user = await this.userService.findById(id);
-    const { password, refreshToken, ...result } = user;
+    const { password: _pwd, refreshToken: _rt, ...result } = user;
     return result;
   }
 
