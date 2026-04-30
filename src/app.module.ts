@@ -10,6 +10,7 @@ import {
   databaseConfig,
   redisConfig,
   jwtConfig,
+  mailConfig,
   validate,
 } from './config/index.js';
 import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard.js';
@@ -22,7 +23,7 @@ import { AdminSeed } from './database/seeds/admin.seed.js';
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      load: [appConfig, databaseConfig, redisConfig, jwtConfig],
+      load: [appConfig, databaseConfig, redisConfig, jwtConfig, mailConfig],
       validate,
     }),
 

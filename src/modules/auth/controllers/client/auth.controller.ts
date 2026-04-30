@@ -13,6 +13,11 @@ import { ApiTags } from '@nestjs/swagger';
 import type { Request, Response } from 'express';
 import { AuthService } from '../../services/auth.service.js';
 import { RegisterDto } from '../../dtos/register.dto.js';
+import { VerifyEmailDto } from '../../dtos/verify-email.dto.js';
+import {
+  ForgotPasswordDto,
+  ResetPasswordDto,
+} from '../../dtos/forgot-password.dto.js';
 import { LocalAuthGuard } from '../../guards/local-auth.guard.js';
 import { Public, CurrentUser } from '../../../../common/decorators/index.js';
 import { AuthGuard } from '@nestjs/passport';
@@ -54,6 +59,34 @@ export class AuthController {
   @Get('me')
   getMe(@CurrentUser() user: { id: number; email: string; role: string }) {
     return user;
+  }
+
+  @Public()
+  @Post('verify-email')
+  @HttpCode(HttpStatus.OK)
+  async verifyEmail(@Body() dto: VerifyEmailDto) {
+    return this.authService.verifyEmail(dto.token);
+  }
+
+  @Post('resend-verification')
+  @HttpCode(HttpStatus.OK)
+  async resendVerification(@CurrentUser('email') email: string) {
+    await this.authService.sendVerificationEmail(email);
+    return { message: 'Verification email sent' };
+  }
+
+  @Public()
+  @Post('forgot-password')
+  @HttpCode(HttpStatus.OK)
+  async forgotPassword(@Body() dto: ForgotPasswordDto) {
+    return this.authService.forgotPassword(dto.email);
+  }
+
+  @Public()
+  @Post('reset-password')
+  @HttpCode(HttpStatus.OK)
+  async resetPassword(@Body() dto: ResetPasswordDto) {
+    return this.authService.resetPassword(dto.token, dto.newPassword);
   }
 
   @Public()

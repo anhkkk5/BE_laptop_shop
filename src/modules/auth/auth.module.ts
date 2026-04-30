@@ -8,10 +8,12 @@ import { JwtStrategy } from './strategies/jwt.strategy.js';
 import { LocalStrategy } from './strategies/local.strategy.js';
 import { GoogleStrategy } from './strategies/google.strategy.js';
 import { UserModule } from '../user/user.module.js';
+import { MailModule } from '../mail/mail.module.js';
 
 @Module({
   imports: [
     UserModule,
+    MailModule,
     PassportModule.register({ defaultStrategy: 'jwt' }),
     JwtModule.registerAsync({
       inject: [ConfigService],

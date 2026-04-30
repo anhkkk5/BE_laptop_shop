@@ -2,6 +2,7 @@ import {
   Injectable,
   UnauthorizedException,
   ConflictException,
+  BadRequestException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
@@ -14,6 +15,8 @@ import { TokenResponseDto } from '../dtos/token-response.dto.js';
 import { User } from '../../user/entities/user.entity.js';
 import { JwtPayload } from '../strategies/jwt.strategy.js';
 import { UserRole } from '../../user/enums/user-role.enum.js';
+import { MailService } from '../../mail/mail.service.js';
+import { randomBytes } from 'crypto';
 
 @Injectable()
 export class AuthService {
@@ -28,6 +31,7 @@ export class AuthService {
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
     @InjectRedis() private readonly redis: Redis,
+    private readonly mailService: MailService,
   ) {
     this.accessSecret = this.configService.get<string>('JWT_ACCESS_SECRET')!;
     this.accessExpiresIn = this.configService.get<string>(
@@ -61,7 +65,64 @@ export class AuthService {
       role: UserRole.CUSTOMER,
     });
 
-    return this.generateTokens(user);
+    const tokens = await this.generateTokens(user);
+
+    await this.sendVerificationEmail(user.email);
+
+    return tokens;
+  }
+
+  async sendVerificationEmail(email: string): Promise<void> {
+    const user = await this.userService.findByEmail(email);
+    if (!user) throw new BadRequestException('Email not found');
+    if (user.isVerified)
+      throw new BadRequestException('Email already verified');
+
+    const token = randomBytes(32).toString('hex');
+    await this.redis.set(`verify:${token}`, String(user.id), 'EX', 86400);
+
+    await this.mailService.sendVerificationEmail(email, token);
+  }
+
+  async verifyEmail(token: string): Promise<{ message: string }> {
+    const userId = await this.redis.get(`verify:${token}`);
+    if (!userId) throw new BadRequestException('Invalid or expired token');
+
+    await this.userService.verifyEmail(Number(userId));
+    await this.redis.del(`verify:${token}`);
+
+    return { message: 'Email verified successfully' };
+  }
+
+  async forgotPassword(email: string): Promise<{ message: string }> {
+    const user = await this.userService.findByEmail(email);
+    if (!user) {
+      return { message: 'If the email exists, a reset link has been sent' };
+    }
+
+    const token = randomBytes(32).toString('hex');
+    await this.redis.set(`reset:${token}`, String(user.id), 'EX', 3600);
+
+    await this.mailService.sendPasswordResetEmail(email, token);
+
+    return { message: 'If the email exists, a reset link has been sent' };
+  }
+
+  async resetPassword(
+    token: string,
+    newPassword: string,
+  ): Promise<{ message: string }> {
+    const userId = await this.redis.get(`reset:${token}`);
+    if (!userId) throw new BadRequestException('Invalid or expired token');
+
+    const hashedPassword = await bcrypt.hash(
+      newPassword,
+      this.bcryptSaltRounds,
+    );
+    await this.userService.updatePassword(Number(userId), hashedPassword);
+    await this.redis.del(`reset:${token}`);
+
+    return { message: 'Password reset successfully' };
   }
 
   async validateUser(
