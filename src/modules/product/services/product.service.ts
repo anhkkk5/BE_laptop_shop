@@ -12,6 +12,8 @@ import { Product } from '../entities/product.entity.js';
 
 @Injectable()
 export class ProductService {
+  private static readonly LOW_STOCK_THRESHOLD = 5;
+
   constructor(
     private readonly productRepository: ProductRepository,
     private readonly productImageRepository: ProductImageRepository,
@@ -101,5 +103,11 @@ export class ProductService {
 
   async increaseStock(id: number, quantity: number): Promise<void> {
     await this.productRepository.increaseStock(id, quantity);
+  }
+
+  async getInventorySummary() {
+    return this.productRepository.getInventorySummary(
+      ProductService.LOW_STOCK_THRESHOLD,
+    );
   }
 }

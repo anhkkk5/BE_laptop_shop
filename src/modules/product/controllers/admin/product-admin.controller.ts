@@ -26,6 +26,11 @@ export class ProductAdminController {
     return this.productService.findAll(query);
   }
 
+  @Get('inventory-summary')
+  async getInventorySummary() {
+    return this.productService.getInventorySummary();
+  }
+
   @Get(':id')
   async findById(@Param('id', ParseIntPipe) id: number) {
     return this.productService.findById(id);

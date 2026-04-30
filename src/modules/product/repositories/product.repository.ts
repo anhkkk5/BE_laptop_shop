@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Between, LessThanOrEqual, Repository } from 'typeorm';
 import { Product, ProductStatus } from '../entities/product.entity.js';
 import { QueryProductDto } from '../dtos/query-product.dto.js';
 
@@ -148,5 +148,24 @@ export class ProductRepository {
 
   async increaseStock(id: number, quantity: number): Promise<void> {
     await this.repo.increment({ id }, 'stockQuantity', quantity);
+  }
+
+  async getInventorySummary(lowStockThreshold: number) {
+    const [totalProducts, outOfStock, lowStock] = await Promise.all([
+      this.repo.count(),
+      this.repo.count({ where: { stockQuantity: LessThanOrEqual(0) } }),
+      this.repo.count({
+        where: {
+          stockQuantity: Between(1, lowStockThreshold),
+        },
+      }),
+    ]);
+
+    return {
+      totalProducts,
+      outOfStock,
+      lowStock,
+      lowStockThreshold,
+    };
   }
 }
