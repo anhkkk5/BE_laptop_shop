@@ -131,4 +131,22 @@ export class ProductRepository {
   async incrementViewCount(id: number): Promise<void> {
     await this.repo.increment({ id }, 'viewCount', 1);
   }
+
+  async decreaseStockIfEnough(id: number, quantity: number): Promise<boolean> {
+    const result = await this.repo
+      .createQueryBuilder()
+      .update(Product)
+      .set({
+        stockQuantity: () => `stock_quantity - ${quantity}`,
+      })
+      .where('id = :id', { id })
+      .andWhere('stock_quantity >= :quantity', { quantity })
+      .execute();
+
+    return (result.affected || 0) > 0;
+  }
+
+  async increaseStock(id: number, quantity: number): Promise<void> {
+    await this.repo.increment({ id }, 'stockQuantity', quantity);
+  }
 }

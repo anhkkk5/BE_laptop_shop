@@ -7,9 +7,14 @@ import { OrderService } from './services/order.service.js';
 import { OrderController } from './controllers/client/order.controller.js';
 import { OrderAdminController } from './controllers/admin/order-admin.controller.js';
 import { CartModule } from '../cart/cart.module.js';
+import { ProductModule } from '../product/product.module.js';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Order, OrderItem]), CartModule],
+  imports: [
+    TypeOrmModule.forFeature([Order, OrderItem]),
+    CartModule,
+    ProductModule,
+  ],
   controllers: [OrderController, OrderAdminController],
   providers: [OrderRepository, OrderService],
   exports: [OrderService],

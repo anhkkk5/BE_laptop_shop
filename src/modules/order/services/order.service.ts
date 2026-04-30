@@ -9,12 +9,14 @@ import { CreateOrderDto } from '../dtos/create-order.dto.js';
 import { UpdateOrderStatusDto } from '../dtos/update-order-status.dto.js';
 import { Order, OrderStatus } from '../entities/order.entity.js';
 import { CartService } from '../../cart/services/cart.service.js';
+import { ProductService } from '../../product/services/product.service.js';
 
 @Injectable()
 export class OrderService {
   constructor(
     private readonly orderRepository: OrderRepository,
     private readonly cartService: CartService,
+    private readonly productService: ProductService,
   ) {}
 
   private generateOrderCode(): string {
@@ -29,37 +31,64 @@ export class OrderService {
       throw new BadRequestException('Cart is empty');
     }
 
-    const subtotal = cart.summary.subtotal;
-    const shippingFee = 0;
-    const discountAmount = 0;
-    const total = subtotal + shippingFee - discountAmount;
+    const deductedItems: Array<{ productId: number; quantity: number }> = [];
 
-    const order = await this.orderRepository.create({
-      userId,
-      orderCode: this.generateOrderCode(),
-      status: OrderStatus.PENDING,
-      customerName: dto.customerName,
-      customerPhone: dto.customerPhone,
-      shippingAddress: dto.shippingAddress,
-      paymentMethod: dto.paymentMethod || 'cod',
-      subtotal,
-      shippingFee,
-      discountAmount,
-      total,
-      note: dto.note || null,
-      items: cart.items.map((item) => ({
-        productId: item.productId,
-        productName: item.productName,
-        productImage: item.productImage,
-        unitPrice: item.unitPrice,
-        quantity: item.quantity,
-        lineTotal: item.unitPrice * item.quantity,
-      })),
-    });
+    try {
+      for (const item of cart.items) {
+        const deducted = await this.productService.decreaseStockIfEnough(
+          item.productId,
+          item.quantity,
+        );
 
-    await this.cartService.clearCart(userId);
+        if (!deducted) {
+          throw new BadRequestException(
+            `Not enough stock for product: ${item.productName}`,
+          );
+        }
 
-    return order;
+        deductedItems.push({
+          productId: item.productId,
+          quantity: item.quantity,
+        });
+      }
+
+      const subtotal = cart.summary.subtotal;
+      const shippingFee = 0;
+      const discountAmount = 0;
+      const total = subtotal + shippingFee - discountAmount;
+
+      const order = await this.orderRepository.create({
+        userId,
+        orderCode: this.generateOrderCode(),
+        status: OrderStatus.PENDING,
+        customerName: dto.customerName,
+        customerPhone: dto.customerPhone,
+        shippingAddress: dto.shippingAddress,
+        paymentMethod: dto.paymentMethod || 'cod',
+        subtotal,
+        shippingFee,
+        discountAmount,
+        total,
+        note: dto.note || null,
+        items: cart.items.map((item) => ({
+          productId: item.productId,
+          productName: item.productName,
+          productImage: item.productImage,
+          unitPrice: item.unitPrice,
+          quantity: item.quantity,
+          lineTotal: item.unitPrice * item.quantity,
+        })),
+      });
+
+      await this.cartService.clearCart(userId);
+
+      return order;
+    } catch (error) {
+      for (const item of deductedItems) {
+        await this.productService.increaseStock(item.productId, item.quantity);
+      }
+      throw error;
+    }
   }
 
   async findMyOrders(userId: number, page: number, limit: number) {
@@ -85,7 +114,10 @@ export class OrderService {
     return order;
   }
 
-  async updateStatus(orderId: number, dto: UpdateOrderStatusDto): Promise<void> {
+  async updateStatus(
+    orderId: number,
+    dto: UpdateOrderStatusDto,
+  ): Promise<void> {
     const order = await this.findById(orderId);
     order.status = dto.status;
     await this.orderRepository.save(order);
@@ -95,6 +127,10 @@ export class OrderService {
     const order = await this.findMyOrderById(userId, orderId);
     if (order.status !== OrderStatus.PENDING) {
       throw new BadRequestException('Only pending orders can be cancelled');
+    }
+
+    for (const item of order.items) {
+      await this.productService.increaseStock(item.productId, item.quantity);
     }
 
     order.status = OrderStatus.CANCELLED;

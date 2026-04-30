@@ -94,4 +94,12 @@ export class ProductService {
     await this.findById(id);
     await this.productRepository.delete(id);
   }
+
+  async decreaseStockIfEnough(id: number, quantity: number): Promise<boolean> {
+    return this.productRepository.decreaseStockIfEnough(id, quantity);
+  }
+
+  async increaseStock(id: number, quantity: number): Promise<void> {
+    await this.productRepository.increaseStock(id, quantity);
+  }
 }
