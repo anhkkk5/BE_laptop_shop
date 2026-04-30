@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Controller,
   Get,
   Post,
@@ -28,7 +29,17 @@ export class ProductAdminController {
 
   @Get('inventory-summary')
   async getInventorySummary(@Query('lowStockThreshold') threshold?: string) {
-    const parsedThreshold = threshold ? Number(threshold) : undefined;
+    if (threshold === undefined) {
+      return this.productService.getInventorySummary();
+    }
+
+    const parsedThreshold = Number(threshold);
+    if (!Number.isInteger(parsedThreshold) || parsedThreshold <= 0) {
+      throw new BadRequestException(
+        'lowStockThreshold must be a positive integer',
+      );
+    }
+
     return this.productService.getInventorySummary(parsedThreshold);
   }
 

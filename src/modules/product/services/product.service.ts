@@ -107,7 +107,9 @@ export class ProductService {
 
   async getInventorySummary(lowStockThreshold?: number) {
     const threshold =
-      lowStockThreshold && lowStockThreshold > 0
+      typeof lowStockThreshold === 'number' &&
+      Number.isInteger(lowStockThreshold) &&
+      lowStockThreshold > 0
         ? lowStockThreshold
         : ProductService.LOW_STOCK_THRESHOLD;
 
