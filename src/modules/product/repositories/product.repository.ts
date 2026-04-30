@@ -161,11 +161,24 @@ export class ProductRepository {
       }),
     ]);
 
+    const totalAlerts = outOfStock + lowStock;
+    const outOfStockRate =
+      totalProducts > 0 ? Math.round((outOfStock / totalProducts) * 100) : 0;
+    const lowStockRate =
+      totalProducts > 0 ? Math.round((lowStock / totalProducts) * 100) : 0;
+    const alertRate =
+      totalProducts > 0 ? Math.round((totalAlerts / totalProducts) * 100) : 0;
+
     return {
       totalProducts,
       outOfStock,
       lowStock,
+      totalAlerts,
+      outOfStockRate,
+      lowStockRate,
+      alertRate,
       lowStockThreshold,
+      generatedAt: new Date().toISOString(),
     };
   }
 }
