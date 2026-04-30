@@ -51,6 +51,15 @@ export class PaymentService {
     return payment;
   }
 
+  async getByOrderId(orderId: number): Promise<Payment> {
+    await this.orderService.findById(orderId);
+    const payment = await this.paymentRepository.findByOrderId(orderId);
+    if (!payment) {
+      throw new BadRequestException('Payment not found for this order');
+    }
+    return payment;
+  }
+
   async simulateSuccess(orderId: number): Promise<Payment> {
     const order = await this.orderService.findById(orderId);
     const payment = await this.paymentRepository.findByOrderId(orderId);
