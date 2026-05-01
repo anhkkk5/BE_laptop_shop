@@ -14,7 +14,7 @@ import { OrderService } from '../../services/order.service.js';
 import { UpdateOrderStatusDto } from '../../dtos/update-order-status.dto.js';
 
 @Controller('admin/orders')
-@Roles(UserRole.ADMIN)
+@Roles(UserRole.ADMIN, UserRole.STAFF)
 export class OrderAdminController {
   constructor(private readonly orderService: OrderService) {}
 

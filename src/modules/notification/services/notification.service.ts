@@ -10,7 +10,10 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Redis } from 'ioredis';
 import { Repository } from 'typeorm';
 import { QueryNotificationDto } from '../dtos/query-notification.dto.js';
-import { Notification, NotificationType } from '../entities/notification.entity.js';
+import {
+  Notification,
+  NotificationType,
+} from '../entities/notification.entity.js';
 
 type NotificationJob = {
   userId: number;
@@ -128,9 +131,69 @@ export class NotificationService implements OnModuleInit, OnModuleDestroy {
     return { unread };
   }
 
+  async getQueueStats() {
+    const [pending, retrying, deadLetter] = await Promise.all([
+      this.redis.llen(this.queueKey),
+      this.redis.zcard(this.retryKey),
+      this.redis.llen(this.deadLetterKey),
+    ]);
+
+    return { pending, retrying, deadLetter };
+  }
+
+  async getDeadLetterJobs(limit = 20) {
+    const safeLimit = Number.isInteger(limit)
+      ? Math.min(Math.max(limit, 1), 100)
+      : 20;
+    const jobs = await this.redis.lrange(this.deadLetterKey, 0, safeLimit - 1);
+
+    return jobs.map((job, index) => {
+      try {
+        return {
+          index,
+          payload: JSON.parse(job) as Record<string, unknown>,
+          raw: job,
+        };
+      } catch {
+        return {
+          index,
+          payload: null,
+          raw: job,
+        };
+      }
+    });
+  }
+
+  async retryDeadLetterJobs(limit = 20) {
+    const safeLimit = Number.isInteger(limit)
+      ? Math.min(Math.max(limit, 1), 100)
+      : 20;
+
+    let retried = 0;
+
+    for (let i = 0; i < safeLimit; i += 1) {
+      const rawJob = await this.redis.lpop(this.deadLetterKey);
+      if (!rawJob) {
+        break;
+      }
+
+      await this.redis.rpush(this.queueKey, rawJob);
+      retried += 1;
+    }
+
+    return { retried };
+  }
+
   private async flushRetryJobs() {
     const now = Date.now();
-    const rawJobs = await this.redis.zrangebyscore(this.retryKey, 0, now, 'LIMIT', 0, 20);
+    const rawJobs = await this.redis.zrangebyscore(
+      this.retryKey,
+      0,
+      now,
+      'LIMIT',
+      0,
+      20,
+    );
 
     if (!rawJobs.length) {
       return;

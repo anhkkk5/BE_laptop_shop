@@ -18,7 +18,7 @@ import { UpdateProductDto } from '../../dtos/update-product.dto.js';
 import { QueryProductDto } from '../../dtos/query-product.dto.js';
 
 @Controller('admin/products')
-@Roles(UserRole.ADMIN)
+@Roles(UserRole.ADMIN, UserRole.WAREHOUSE)
 export class ProductAdminController {
   constructor(private readonly productService: ProductService) {}
 
@@ -49,11 +49,13 @@ export class ProductAdminController {
   }
 
   @Post()
+  @Roles(UserRole.ADMIN)
   async create(@Body() dto: CreateProductDto) {
     return this.productService.create(dto);
   }
 
   @Put(':id')
+  @Roles(UserRole.ADMIN)
   async update(
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateProductDto,
@@ -63,6 +65,7 @@ export class ProductAdminController {
   }
 
   @Delete(':id')
+  @Roles(UserRole.ADMIN)
   async delete(@Param('id', ParseIntPipe) id: number) {
     await this.productService.delete(id);
     return { message: 'Product deleted successfully' };

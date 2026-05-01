@@ -4,7 +4,7 @@ import { UserRole } from '../../../user/enums/user-role.enum.js';
 import { PaymentService } from '../../services/payment.service.js';
 
 @Controller('admin/payments')
-@Roles(UserRole.ADMIN)
+@Roles(UserRole.ADMIN, UserRole.STAFF)
 export class PaymentAdminController {
   constructor(private readonly paymentService: PaymentService) {}
 
