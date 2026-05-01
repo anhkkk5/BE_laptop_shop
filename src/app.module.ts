@@ -23,6 +23,7 @@ import { ProductModule } from './modules/product/product.module.js';
 import { CartModule } from './modules/cart/cart.module.js';
 import { OrderModule } from './modules/order/order.module.js';
 import { PaymentModule } from './modules/payment/payment.module.js';
+import { PcBuildModule } from './modules/pc-build/pc-build.module.js';
 import { AdminSeed } from './database/seeds/admin.seed.js';
 
 @Module({
@@ -70,6 +71,7 @@ import { AdminSeed } from './database/seeds/admin.seed.js';
     CartModule,
     OrderModule,
     PaymentModule,
+    PcBuildModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: JwtAuthGuard },
