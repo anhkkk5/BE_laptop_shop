@@ -155,7 +155,11 @@ export class WarrantyService {
     return ticket;
   }
 
-  async assignTechnician(ticketId: number, dto: AssignTicketDto, actorId: number) {
+  async assignTechnician(
+    ticketId: number,
+    dto: AssignTicketDto,
+    actorId: number,
+  ) {
     const ticket = await this.ensureTicketExists(ticketId);
     ticket.assignedTo = dto.technicianId;
 
@@ -230,7 +234,11 @@ export class WarrantyService {
     return saved;
   }
 
-  async addRepairLog(ticketId: number, dto: CreateRepairLogDto, actorId: number) {
+  async addRepairLog(
+    ticketId: number,
+    dto: CreateRepairLogDto,
+    actorId: number,
+  ) {
     await this.ensureTicketExists(ticketId);
 
     return this.repairLogRepo.save(
@@ -251,5 +259,33 @@ export class WarrantyService {
       where: { ticketId },
       order: { createdAt: 'DESC' },
     });
+  }
+
+  async getSummary() {
+    const total = await this.ticketRepo.count();
+    const byStatus = await this.ticketRepo
+      .createQueryBuilder('ticket')
+      .select('ticket.status', 'status')
+      .addSelect('COUNT(*)', 'count')
+      .groupBy('ticket.status')
+      .getRawMany<{ status: WarrantyTicketStatus; count: string }>();
+
+    const counts = byStatus.reduce<Record<string, number>>((acc, item) => {
+      acc[item.status] = Number(item.count);
+      return acc;
+    }, {});
+
+    return {
+      total,
+      pending: counts[WarrantyTicketStatus.PENDING] || 0,
+      inProgress:
+        (counts[WarrantyTicketStatus.RECEIVED] || 0) +
+        (counts[WarrantyTicketStatus.DIAGNOSING] || 0) +
+        (counts[WarrantyTicketStatus.REPAIRING] || 0) +
+        (counts[WarrantyTicketStatus.WAITING_PARTS] || 0),
+      completed: counts[WarrantyTicketStatus.COMPLETED] || 0,
+      returned: counts[WarrantyTicketStatus.RETURNED] || 0,
+      rejected: counts[WarrantyTicketStatus.REJECTED] || 0,
+    };
   }
 }

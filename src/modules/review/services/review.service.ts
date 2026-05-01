@@ -37,7 +37,8 @@ export class ReviewService {
     });
 
     const ratingSum = data.reduce((sum, item) => sum + Number(item.rating), 0);
-    const averageRating = data.length > 0 ? Number((ratingSum / data.length).toFixed(2)) : 0;
+    const averageRating =
+      data.length > 0 ? Number((ratingSum / data.length).toFixed(2)) : 0;
 
     return {
       data,
@@ -47,6 +48,64 @@ export class ReviewService {
         limit,
         totalPages: Math.ceil(total / limit),
         averageRating,
+      },
+    };
+  }
+
+  async findAll(page: number, limit: number) {
+    const [data, total] = await this.reviewRepo.findAndCount({
+      order: { createdAt: 'DESC' },
+      skip: (page - 1) * limit,
+      take: limit,
+    });
+
+    return {
+      data,
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
+  }
+
+  async getSummary() {
+    const total = await this.reviewRepo.count();
+    const verified = await this.reviewRepo.count({
+      where: { isVerified: true },
+    });
+
+    const avgRaw = await this.reviewRepo
+      .createQueryBuilder('review')
+      .select('AVG(review.rating)', 'avgRating')
+      .getRawOne<{ avgRating: string | null }>();
+
+    const ratingBucketsRaw = await this.reviewRepo
+      .createQueryBuilder('review')
+      .select('review.rating', 'rating')
+      .addSelect('COUNT(*)', 'count')
+      .groupBy('review.rating')
+      .getRawMany<{ rating: string; count: string }>();
+
+    const byRating = ratingBucketsRaw.reduce<Record<string, number>>(
+      (acc, item) => {
+        acc[item.rating] = Number(item.count);
+        return acc;
+      },
+      {},
+    );
+
+    return {
+      total,
+      verified,
+      averageRating: Number(Number(avgRaw?.avgRating || 0).toFixed(2)),
+      byRating: {
+        1: byRating['1'] || 0,
+        2: byRating['2'] || 0,
+        3: byRating['3'] || 0,
+        4: byRating['4'] || 0,
+        5: byRating['5'] || 0,
       },
     };
   }
@@ -64,7 +123,9 @@ export class ReviewService {
     });
 
     if (existing) {
-      throw new BadRequestException('You have already reviewed this order item');
+      throw new BadRequestException(
+        'You have already reviewed this order item',
+      );
     }
 
     const review = this.reviewRepo.create({

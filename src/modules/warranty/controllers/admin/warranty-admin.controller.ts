@@ -20,6 +20,11 @@ import { UpdateTicketStatusDto } from '../../dtos/update-ticket-status.dto.js';
 export class WarrantyAdminController {
   constructor(private readonly warrantyService: WarrantyService) {}
 
+  @Get('summary')
+  async getSummary() {
+    return this.warrantyService.getSummary();
+  }
+
   @Get('all')
   async findAll(@Query() pagination: PaginationDto) {
     return this.warrantyService.findAllTickets(
