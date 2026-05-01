@@ -46,7 +46,12 @@ export class Payment {
   })
   status!: PaymentStatus;
 
-  @Column({ name: 'transaction_code', type: 'varchar', length: 64, nullable: true })
+  @Column({
+    name: 'transaction_code',
+    type: 'varchar',
+    length: 64,
+    nullable: true,
+  })
   transactionCode!: string | null;
 
   @Column({ type: 'varchar', length: 255, nullable: true })

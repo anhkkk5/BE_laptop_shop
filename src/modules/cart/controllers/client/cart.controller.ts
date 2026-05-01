@@ -23,7 +23,10 @@ export class CartController {
   }
 
   @Post('items')
-  async addItem(@CurrentUser('id') userId: number, @Body() dto: AddCartItemDto) {
+  async addItem(
+    @CurrentUser('id') userId: number,
+    @Body() dto: AddCartItemDto,
+  ) {
     return this.cartService.addItem(userId, dto);
   }
 

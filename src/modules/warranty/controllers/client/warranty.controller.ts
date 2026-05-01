@@ -33,7 +33,11 @@ export class WarrantyController {
     @CurrentUser('id') userId: number,
     @Query() pagination: PaginationDto,
   ) {
-    return this.warrantyService.findMyTickets(userId, pagination.page, pagination.limit);
+    return this.warrantyService.findMyTickets(
+      userId,
+      pagination.page,
+      pagination.limit,
+    );
   }
 
   @Get(':id')

@@ -37,7 +37,10 @@ export class CartService {
       (sum, item) => sum + Number(item.unitPrice) * item.quantity,
       0,
     );
-    const totalItems = fullCart.items.reduce((sum, item) => sum + item.quantity, 0);
+    const totalItems = fullCart.items.reduce(
+      (sum, item) => sum + item.quantity,
+      0,
+    );
 
     return {
       id: fullCart.id,
@@ -91,7 +94,11 @@ export class CartService {
     return this.getMyCart(userId);
   }
 
-  async updateItemQuantity(userId: number, itemId: number, dto: UpdateCartItemDto) {
+  async updateItemQuantity(
+    userId: number,
+    itemId: number,
+    dto: UpdateCartItemDto,
+  ) {
     const cart = await this.getOrCreateCart(userId);
     const item = await this.cartItemRepository.findById(itemId);
     if (!item) throw new NotFoundException('Cart item not found');

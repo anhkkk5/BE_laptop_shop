@@ -25,11 +25,18 @@ export class ReviewController {
     @Param('productId', ParseIntPipe) productId: number,
     @Query() pagination: PaginationDto,
   ) {
-    return this.reviewService.getByProductId(productId, pagination.page, pagination.limit);
+    return this.reviewService.getByProductId(
+      productId,
+      pagination.page,
+      pagination.limit,
+    );
   }
 
   @Post()
-  async create(@CurrentUser('id') userId: number, @Body() dto: CreateReviewDto) {
+  async create(
+    @CurrentUser('id') userId: number,
+    @Body() dto: CreateReviewDto,
+  ) {
     return this.reviewService.create(userId, dto);
   }
 

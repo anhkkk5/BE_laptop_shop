@@ -15,7 +15,8 @@ export class PcBuildController {
     @Query('limit') limit?: string,
   ) {
     const parsedLimit = Number(limit);
-    const safeLimit = Number.isInteger(parsedLimit) && parsedLimit > 0 ? parsedLimit : 20;
+    const safeLimit =
+      Number.isInteger(parsedLimit) && parsedLimit > 0 ? parsedLimit : 20;
     return this.pcBuildService.getComponentsByType(type, safeLimit);
   }
 

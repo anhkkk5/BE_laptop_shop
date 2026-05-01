@@ -7,7 +7,7 @@ describe('NotificationService', () => {
       findAndCount: jest.fn(),
       findOne: jest.fn(),
       save: jest.fn(),
-      create: jest.fn((value) => value),
+      create: jest.fn().mockImplementation((value: unknown) => value),
       createQueryBuilder: jest.fn(),
     };
 

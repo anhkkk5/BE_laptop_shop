@@ -49,10 +49,22 @@ export class Order {
   @Column({ type: 'decimal', precision: 15, scale: 0 })
   subtotal!: number;
 
-  @Column({ name: 'shipping_fee', type: 'decimal', precision: 15, scale: 0, default: 0 })
+  @Column({
+    name: 'shipping_fee',
+    type: 'decimal',
+    precision: 15,
+    scale: 0,
+    default: 0,
+  })
   shippingFee!: number;
 
-  @Column({ name: 'discount_amount', type: 'decimal', precision: 15, scale: 0, default: 0 })
+  @Column({
+    name: 'discount_amount',
+    type: 'decimal',
+    precision: 15,
+    scale: 0,
+    default: 0,
+  })
   discountAmount!: number;
 
   @Column({ type: 'decimal', precision: 15, scale: 0 })

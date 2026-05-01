@@ -27,7 +27,11 @@ export class OrderController {
     @CurrentUser('id') userId: number,
     @Query() pagination: PaginationDto,
   ) {
-    return this.orderService.findMyOrders(userId, pagination.page, pagination.limit);
+    return this.orderService.findMyOrders(
+      userId,
+      pagination.page,
+      pagination.limit,
+    );
   }
 
   @Get(':id')

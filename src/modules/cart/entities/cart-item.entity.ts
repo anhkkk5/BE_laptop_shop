@@ -29,7 +29,12 @@ export class CartItem {
   @Column({ name: 'product_name', type: 'varchar', length: 255 })
   productName!: string;
 
-  @Column({ name: 'product_image', type: 'varchar', length: 500, nullable: true })
+  @Column({
+    name: 'product_image',
+    type: 'varchar',
+    length: 500,
+    nullable: true,
+  })
   productImage!: string | null;
 
   @CreateDateColumn({ name: 'created_at' })

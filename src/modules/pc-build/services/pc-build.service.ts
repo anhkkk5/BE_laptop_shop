@@ -1,4 +1,8 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ProductService } from '../../product/services/product.service.js';
@@ -162,7 +166,9 @@ export class PcBuildService {
     ]);
 
     const issues = this.evaluateCompatibility(products, rules);
-    const errorCount = issues.filter((item) => item.severity === 'error').length;
+    const errorCount = issues.filter(
+      (item) => item.severity === 'error',
+    ).length;
     const warningCount = issues.filter(
       (item) => item.severity === 'warning',
     ).length;
@@ -203,7 +209,9 @@ export class PcBuildService {
             item.targetProductId === candidate.id,
         );
 
-        const errorCount = issues.filter((item) => item.severity === 'error').length;
+        const errorCount = issues.filter(
+          (item) => item.severity === 'error',
+        ).length;
         const warningCount = issues.filter(
           (item) => item.severity === 'warning',
         ).length;
@@ -211,7 +219,10 @@ export class PcBuildService {
         return {
           product: candidate,
           compatible: errorCount === 0,
-          compatibilityScore: Math.max(0, 100 - errorCount * 50 - warningCount * 10),
+          compatibilityScore: Math.max(
+            0,
+            100 - errorCount * 50 - warningCount * 10,
+          ),
           errorCount,
           warningCount,
           issues,
