@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { CreatePaymentDto } from '../dtos/create-payment.dto.js';
 import { PaymentRepository } from '../repositories/payment.repository.js';
 import { OrderService } from '../../order/services/order.service.js';
@@ -14,6 +15,7 @@ export class PaymentService {
   constructor(
     private readonly paymentRepository: PaymentRepository,
     private readonly orderService: OrderService,
+    private readonly eventEmitter: EventEmitter2,
   ) {}
 
   private makeTxCode(orderId: number): string {
@@ -31,7 +33,7 @@ export class PaymentService {
 
     const isCod = dto.method === PaymentMethod.COD;
 
-    return this.paymentRepository.create({
+    const payment = await this.paymentRepository.create({
       orderId: order.id,
       userId,
       method: dto.method,
@@ -40,6 +42,16 @@ export class PaymentService {
       transactionCode: isCod ? this.makeTxCode(order.id) : null,
       note: isCod ? 'Thanh toán khi nhận hàng' : 'Chờ thanh toán online',
     });
+
+    if (isCod) {
+      this.eventEmitter.emit('payment.completed', {
+        userId: payment.userId,
+        orderId: payment.orderId,
+        amount: payment.amount,
+      });
+    }
+
+    return payment;
   }
 
   async getMyPaymentStatus(userId: number, orderId: number): Promise<Payment> {
@@ -78,6 +90,12 @@ export class PaymentService {
       });
     }
 
+    this.eventEmitter.emit('payment.completed', {
+      userId: payment.userId,
+      orderId: payment.orderId,
+      amount: payment.amount,
+    });
+
     return this.paymentRepository.save(payment);
   }
 
@@ -89,6 +107,13 @@ export class PaymentService {
 
     payment.status = PaymentStatus.FAILED;
     payment.note = 'Thanh toán online thất bại (simulate)';
+
+    this.eventEmitter.emit('payment.failed', {
+      userId: payment.userId,
+      orderId: payment.orderId,
+      amount: payment.amount,
+    });
+
     return this.paymentRepository.save(payment);
   }
 }

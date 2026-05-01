@@ -4,6 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { OrderService } from '../../order/services/order.service.js';
@@ -27,6 +28,7 @@ export class WarrantyService {
     @InjectRepository(RepairLog)
     private readonly repairLogRepo: Repository<RepairLog>,
     private readonly orderService: OrderService,
+    private readonly eventEmitter: EventEmitter2,
   ) {}
 
   private generateTicketCode(): string {
@@ -109,6 +111,12 @@ export class WarrantyService {
         performedBy: userId,
       }),
     );
+
+    this.eventEmitter.emit('warranty.created', {
+      userId: saved.userId,
+      ticketId: saved.id,
+      ticketCode: saved.ticketCode,
+    });
 
     return saved;
   }
@@ -250,6 +258,13 @@ export class WarrantyService {
         performedBy: actorId,
       }),
     );
+
+    this.eventEmitter.emit('warranty.status_changed', {
+      userId: saved.userId,
+      ticketId: saved.id,
+      ticketCode: saved.ticketCode,
+      status: saved.status,
+    });
 
     return saved;
   }

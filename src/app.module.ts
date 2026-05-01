@@ -26,6 +26,7 @@ import { PaymentModule } from './modules/payment/payment.module.js';
 import { PcBuildModule } from './modules/pc-build/pc-build.module.js';
 import { WarrantyModule } from './modules/warranty/warranty.module.js';
 import { ReviewModule } from './modules/review/review.module.js';
+import { NotificationModule } from './modules/notification/notification.module.js';
 import { AdminSeed } from './database/seeds/admin.seed.js';
 
 @Module({
@@ -76,6 +77,7 @@ import { AdminSeed } from './database/seeds/admin.seed.js';
     PcBuildModule,
     WarrantyModule,
     ReviewModule,
+    NotificationModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: JwtAuthGuard },

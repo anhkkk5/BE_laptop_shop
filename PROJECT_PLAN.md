@@ -13,7 +13,7 @@
 2. [Module Boundaries & Communication](#2-module-boundaries--communication)
 3. [Folder Structure](#3-folder-structure)
 4. [Database Design](#4-database-design)
-5. [Module Chi Tiết](#5-module-chi-tiết)
+5. [Module Chi Tiết](#5-module-chi-tiết-backend)
 6. [API Endpoints](#6-api-endpoints)
 7. [Frontend Pages](#7-frontend-pages)
 8. [Phase Breakdown & Timeline](#8-phase-breakdown--timeline)
@@ -21,6 +21,22 @@
 10. [Deploy & CI/CD](#10-deploy--cicd)
 11. [Key Algorithms](#11-key-algorithms)
 12. [Testing Strategy](#12-testing-strategy)
+13. [Error Handling Strategy](#13-error-handling-strategy)
+14. [Performance & Scalability](#14-performance--scalability)
+15. [Security Details](#15-security-details)
+16. [Data Migration & Seed Strategy](#16-data-migration--seed-strategy)
+17. [Monitoring & Observability](#17-monitoring--observability)
+18. [API Versioning Strategy](#18-api-versioning-strategy)
+19. [Transaction Management](#19-transaction-management)
+20. [Real-world Scenarios & Resilience](#20-real-world-scenarios--resilience)
+21. [Frontend State Management Details](#21-frontend-state-management-details)
+22. [Development Workflow](#22-development-workflow)
+23. [Documentation Standards](#23-documentation-standards)
+24. [Local Development Setup](#24-local-development-setup)
+25. [Third-party Fallback Strategy](#25-third-party-fallback-strategy)
+26. [Mobile Responsiveness Strategy](#26-mobile-responsiveness-strategy)
+27. [Phase Execution Checklist (DoD + Acceptance + Owner)](#27-phase-execution-checklist-dod--acceptance--owner)
+28. [Execution Backlog Mapping (BE / FE Admin / FE Client)](#28-execution-backlog-mapping-be--fe-admin--fe-client)
 
 ---
 
@@ -497,7 +513,7 @@ FeShopLaptop/
 
 ---
 
-## 2. DATABASE DESIGN
+## 4. DATABASE DESIGN
 
 ### Entity Relationship Overview
 
@@ -884,7 +900,7 @@ FeShopLaptop/
 
 ---
 
-## 3. PHÂN CHIA MODULES (Backend)
+## 5. MODULE CHI TIẾT (Backend)
 
 ### Module Dependency Map
 
@@ -934,9 +950,116 @@ UploadModule ──────────────────────�
 | **DashboardModule**     | — (aggregate queries)                   | Revenue, orders, top products, charts data                                        |
 | **UploadModule**        | —                                       | Cloudinary upload images                                                          |
 
+### 5.1 Layered Structure Blueprint (Áp dụng cho mọi module)
+
+```text
+src/modules/<module>/
+├── controllers/               # Presentation layer
+│   ├── public/
+│   ├── admin/
+│   └── internal/
+├── dtos/                      # Input/output contracts
+│   ├── requests/
+│   ├── responses/
+│   └── queries/
+├── services/                  # Application layer (business rules)
+├── entities/                  # Domain data shape (TypeORM entities)
+├── repositories/              # Infrastructure layer (custom repos/query objects)
+├── events/                    # Domain events + handlers
+└── <module>.module.ts
+```
+
+### 5.2 AuthModule (chi tiết)
+
+- **Controllers**: `auth.controller.ts` (register/login/refresh/logout/oauth/verify/reset)
+- **Services**: `auth.service.ts`, `token.service.ts`, `oauth.service.ts`
+- **DTOs**: `RegisterDto`, `LoginDto`, `RefreshTokenDto`, `ForgotPasswordDto`, `ResetPasswordDto`
+- **Events**: `user.registered`, `user.logged_in`
+- **Entities/Infra**: `refresh_tokens` (or Redis token whitelist/blacklist)
+
+**Validation rules chính:**
+
+- Email RFC-compliant + normalize lowercase
+- Password tối thiểu 8 ký tự, có chữ hoa/thường/số/ký tự đặc biệt
+- Refresh token rotation + revoke on suspicious activity
+
+### 5.3 Product + Inventory modules (chi tiết)
+
+- **Product Controllers**: public listing/detail, admin CRUD, images/specs
+- **Product Services**: search/filter/sort/paginate, snapshot fields for order flow
+- **Inventory Services**: reserve/release/confirm stock, adjustment/import/export
+- **DTOs**:
+  - `CreateProductDto`, `UpdateProductDto`, `QueryProductDto`
+  - `ImportStockDto`, `ExportStockDto`, `AdjustStockDto`
+- **Events**:
+  - `product.created`, `product.updated`
+  - `inventory.low_stock`, `inventory.adjusted`
+
+**Repository/query guidelines:**
+
+- QueryBuilder cho filter phức tạp
+- Projection fields cho list endpoints (tránh select `*`)
+- Pagination bắt buộc cho admin/public list lớn
+
+### 5.4 Order + Payment modules (chi tiết)
+
+- **Order Controllers**: checkout, list own orders, admin/staff moderation endpoints
+- **Payment Controllers**: create payment session, webhook callbacks, payment status
+- **Services**:
+  - `OrdersService`: orchestration transaction create order + reserve stock
+  - `PaymentsService`: verify callback signature, idempotency, state transition
+- **DTOs**:
+  - `CheckoutDto`, `UpdateOrderStatusDto`
+  - `CreatePaymentDto`, `PaymentWebhookDto`
+- **Events**:
+  - `order.created`, `order.cancelled`, `order.status_changed`
+  - `payment.completed`, `payment.failed`
+
+**Cross-module contract bắt buộc:**
+
+- Orders không update stock trực tiếp qua table khác module; gọi InventoryService hoặc emit event
+- Payment webhook luôn idempotent theo `provider + transaction_id`
+
+### 5.5 Warranty + Review modules (chi tiết)
+
+- **Warranty Controllers**: customer create/list/detail, admin assign/status, technician logs
+- **Warranty Services**: validate eligibility, workflow status machine, SLA counters
+- **Review Controllers**: create/update/delete, admin moderation summary/list
+- **Review Services**: verified purchase check, update product rating aggregate
+- **DTOs**:
+  - `CreateWarrantyTicketDto`, `AssignTechnicianDto`, `UpdateWarrantyStatusDto`
+  - `CreateReviewDto`, `UpdateReviewDto`, `QueryAdminReviewDto`
+- **Events**:
+  - `warranty.created`, `warranty.status_changed`
+  - `review.created`, `review.deleted`
+
+### 5.6 Module-level code template (NestJS)
+
+```ts
+// controller (presentation)
+@Post()
+create(@Body() dto: CreateXDto) {
+  return this.xService.create(dto);
+}
+
+// service (application)
+async create(dto: CreateXDto) {
+  // validate business rules
+  // call repository
+  // emit domain event
+}
+```
+
+### 5.7 Event handlers pattern
+
+- Mỗi event có payload versioned: `{ version: 1, data: ... }`
+- Handler idempotent (check processed-event table/Redis key)
+- Retry + dead-letter queue cho job thất bại nhiều lần
+- Log correlation id xuyên suốt event chain
+
 ---
 
-## 4. API ENDPOINTS
+## 6. API ENDPOINTS
 
 ### Auth (`/api/auth`)
 
@@ -1125,7 +1248,7 @@ UploadModule ──────────────────────�
 
 ---
 
-## 5. FRONTEND PAGES
+## 7. FRONTEND PAGES
 
 ### Customer Pages
 
@@ -1199,7 +1322,7 @@ UploadModule ──────────────────────�
 
 ---
 
-## 6. PHASE BREAKDOWN & TIMELINE
+## 8. PHASE BREAKDOWN & TIMELINE
 
 ### 🔵 PHASE 1 — Foundation (Tuần 1-2)
 
@@ -1341,7 +1464,7 @@ Tổng cộng: ~14 tuần (~3.5 tháng)
 
 ---
 
-## 7. TECH STACK CHI TIẾT
+## 9. TECH STACK CHI TIẾT
 
 ### Backend
 
@@ -1402,7 +1525,7 @@ Tổng cộng: ~14 tuần (~3.5 tháng)
 
 ---
 
-## 8. DEPLOY & CI/CD
+## 10. DEPLOY & CI/CD
 
 ### Docker Compose (Local Dev)
 
@@ -1493,7 +1616,7 @@ NODE_ENV=development
 
 ---
 
-## 9. KEY ALGORITHMS
+## 11. KEY ALGORITHMS
 
 ### Stock Reservation Flow
 
@@ -1586,7 +1709,7 @@ Input: Selected components { cpu, mainboard, ram, vga, psu, case }
 
 ---
 
-## 10. TESTING STRATEGY
+## 12. TESTING STRATEGY
 
 | Layer                 | Tool                     | Scope                                 |
 | --------------------- | ------------------------ | ------------------------------------- |
@@ -1602,6 +1725,550 @@ Input: Selected components { cpu, mainboard, ram, vga, psu, case }
 3. **Stock Reservation:** Checkout → Reserve → Pay (confirm) / Timeout (release)
 4. **Warranty Flow:** Submit → Assign → Diagnose → Repair → Complete → Return
 5. **PC Build:** Select components → Check compatibility → Show result
+
+---
+
+## 13. ERROR HANDLING STRATEGY
+
+### 13.1 Global error model
+
+```json
+{
+  "success": false,
+  "error": {
+    "code": "ORDER__INSUFFICIENT_STOCK",
+    "message": "Not enough stock for product 123",
+    "details": { "productId": 123, "available": 1, "requested": 2 },
+    "requestId": "req_abc123",
+    "timestamp": "2026-05-01T08:00:00.000Z"
+  }
+}
+```
+
+### 13.2 Error code convention
+
+- Format: `<MODULE>__<ERROR_NAME>`
+- Examples:
+  - `AUTH__INVALID_CREDENTIALS`
+  - `PAYMENT__SIGNATURE_INVALID`
+  - `WARRANTY__INVALID_STATUS_TRANSITION`
+
+### 13.3 Exception mapping
+
+- `ValidationException` → 400
+- `UnauthorizedException` → 401
+- `ForbiddenException` → 403
+- `EntityNotFoundException` → 404
+- `ConflictException` → 409
+- `RateLimitException` → 429
+- `Domain/Internal` → 500
+
+### 13.4 Retry policy (external services)
+
+- Exponential backoff: `1s → 2s → 4s` (max 3 attempts)
+- Retry chỉ áp dụng cho lỗi transient (timeout, 5xx, network reset)
+- Không retry cho 4xx business errors
+- Dead-letter queue cho job vượt retry limit
+
+---
+
+## 14. PERFORMANCE & SCALABILITY
+
+### 14.1 Database indexing strategy
+
+- `users(email)` unique index
+- `products(slug)`, `products(status, category_id, brand_id)` composite index
+- `orders(user_id, created_at)`, `orders(status, created_at)`
+- `payments(order_id, status)`, `payments(transaction_id)`
+- `warranty_tickets(status, assigned_to, created_at)`
+- `reviews(product_id, created_at)`, `reviews(user_id, order_item_id)` unique
+
+### 14.2 Redis caching patterns
+
+- Cache-aside cho read-heavy endpoints:
+  - `GET /products`, `GET /products/:slug`, dashboard aggregates
+- Key convention: `app:<module>:<resource>:<params-hash>`
+- TTL guideline:
+  - Catalog: 5-15 phút
+  - Dashboard aggregates: 1-5 phút
+  - Session/token state: theo token expiration
+
+### 14.3 Query optimization guidelines
+
+- Không trả field thừa cho listing APIs
+- Bắt buộc pagination cho endpoint có thể > 100 rows
+- Dùng joins/select có chủ đích; tránh eager loading mù
+- Theo dõi query plan các endpoint chậm (`EXPLAIN ANALYZE`)
+
+### 14.4 N+1 prevention
+
+- Dùng join/select relation theo batch
+- Với aggregate/relation counts dùng grouped query thay vì loop query
+- Review performance trong code review với endpoint list/details
+
+---
+
+## 15. SECURITY DETAILS
+
+### 15.1 Input validation rules
+
+- Global `ValidationPipe` với `whitelist: true`, `forbidNonWhitelisted: true`, `transform: true`
+- DTO-level constraints cho từng request
+- Sanitize HTML/text fields trước khi render
+
+### 15.2 Injection/XSS/CSRF
+
+- SQL injection: dùng TypeORM parameter binding, không concat SQL string
+- XSS: sanitize rich text + escape output mặc định
+- CSRF: áp dụng cho cookie-based auth endpoints (nếu dùng cookie session)
+
+### 15.3 CORS & Rate limit
+
+- CORS allowlist theo env (`FRONTEND_URL`, admin URL)
+- Credentials chỉ bật khi cần
+- Rate limiting:
+  - Auth endpoints: strict (e.g., 5 req/min/IP)
+  - Public read APIs: medium
+  - Admin APIs: theo role + audit logs
+
+### 15.4 File upload security
+
+- Allowlist MIME types (jpeg/png/webp/pdf)
+- Max size (ví dụ 5MB ảnh, 10MB tài liệu)
+- Rename file tránh path traversal
+- Quét metadata, reject executable/script content
+
+---
+
+## 16. DATA MIGRATION & SEED STRATEGY
+
+### 16.1 Seed data
+
+- Seed tối thiểu: roles, admin account, categories, brands, sample products
+- Seed tách theo môi trường: `dev`, `staging` (không dùng production sample seed)
+
+### 16.2 Migration rollback
+
+- Mỗi migration phải có `up`/`down` rõ ràng
+- Quy tắc backward-compatible trước khi rollout breaking schema
+- Dry-run migration trên staging trước production
+
+### 16.3 Backup strategy
+
+- Daily DB snapshot + point-in-time recovery window
+- Verify restore định kỳ (không chỉ backup)
+- Lưu trữ backup encrypted, retention policy rõ ràng
+
+---
+
+## 17. MONITORING & OBSERVABILITY
+
+### 17.1 Metrics cần theo dõi
+
+- API latency (p50/p95/p99)
+- Error rate theo endpoint/module
+- Throughput (RPS)
+- Queue depth + job failure rate
+- DB slow query count
+
+### 17.2 Logging standard
+
+- JSON structured logs
+- Levels: `debug`, `info`, `warn`, `error`, `fatal`
+- Trường bắt buộc: `timestamp`, `level`, `message`, `requestId`, `userId?`, `module`
+
+### 17.3 Alert rules
+
+- 5xx error rate tăng đột biến
+- p95 latency vượt ngưỡng SLA
+- Queue backlog cao kéo dài
+- Low-stock critical products
+
+### 17.4 Health checks
+
+- `/health/live` (app running)
+- `/health/ready` (DB/Redis/queue dependencies ready)
+- `/health/deps` (chi tiết trạng thái external services)
+
+---
+
+## 18. API VERSIONING STRATEGY
+
+- Prefix route: `/api/v1/...`, `/api/v2/...`
+- Breaking change => version mới, không sửa behavior silent trong cùng version
+- Deprecation policy:
+  - thông báo trước tối thiểu 1 release cycle
+  - response header: `Deprecation`, `Sunset`
+  - changelog migration guide bắt buộc
+
+---
+
+## 19. TRANSACTION MANAGEMENT
+
+### 19.1 Local DB transactions
+
+- Dùng transaction cho các flow nhiều bước ghi DB (checkout, payment settle, inventory adjust)
+- `SELECT ... FOR UPDATE` cho critical rows trong stock/order flows
+
+### 19.2 Cross-module consistency (Saga)
+
+- Áp dụng choreography saga qua domain events
+- Mỗi step có compensating action:
+  - payment failed => release reservation
+  - order cancelled => restore stock
+
+### 19.3 Rollback strategies
+
+- Rollback immediate cho cùng DB transaction
+- Compensating transaction cho cross-service/external side effects
+
+---
+
+## 20. REAL-WORLD SCENARIOS & RESILIENCE
+
+- **Concurrent order handling:** lock inventory rows + idempotent checkout key
+- **Race condition prevention:** optimistic locking/version field cho update nhạy cảm
+- **Deadlock handling:** retry bounded + consistent lock order
+- **Payment webhook idempotency:** lưu `provider_event_id` unique + ignore duplicates
+
+---
+
+## 21. FRONTEND STATE MANAGEMENT DETAILS
+
+### 21.1 Zustand store boundaries
+
+- `authStore` (token/user/session flags)
+- `cartStore` (cart items, totals, pending state)
+- `uiStore` (theme/sidebar/modal/toast local UI state)
+- Không đưa server list data lớn vào Zustand (để React Query xử lý)
+
+### 21.2 React Query strategy
+
+- Query key chuẩn: `['products', filters]`, `['orders', page]`
+- Stale time theo domain:
+  - Catalog: 60s
+  - Dashboard/admin: 15-30s
+  - Profile/session: 0-15s
+- Invalidate chính xác theo mutation scope
+
+### 21.3 Optimistic updates
+
+- Áp dụng cho cart quantity, mark notification read
+- Rollback UI khi mutation fail
+
+### 21.4 Error boundary strategy
+
+- Global error boundary cho app shell
+- Route-level boundary cho page critical (checkout/payment)
+- Component-level fallback cho widgets dashboard
+
+---
+
+## 22. DEVELOPMENT WORKFLOW
+
+- Branching: `main` (stable), `develop` (integration), `feature/*`, `hotfix/*`
+- Commit convention: Conventional Commits (`feat:`, `fix:`, `refactor:`, `docs:`)
+- PR checklist bắt buộc: test evidence, screenshot (nếu UI), risk notes, rollback note
+- Code review yêu cầu ít nhất 1 approver + CI green
+
+---
+
+## 23. DOCUMENTATION STANDARDS
+
+- Swagger bắt buộc cho public/admin APIs
+- README mỗi module gồm: purpose, entities, endpoints, events, runbook
+- Comment guideline: chỉ comment logic phức tạp/decision non-obvious, tránh comment dư
+
+---
+
+## 24. LOCAL DEVELOPMENT SETUP
+
+### 24.1 Prerequisites
+
+- Node.js LTS (>= 20)
+- npm (>= 10)
+- Docker + Docker Compose
+- MySQL client, Redis insight (optional)
+
+### 24.2 Setup steps
+
+1. Copy `.env.example` -> `.env`
+2. `docker compose up -d mysql redis`
+3. Run migrations + seed
+4. Start backend, admin frontend, client frontend
+
+### 24.3 Troubleshooting nhanh
+
+- Port conflict (3001/3002/3003/3306/6379)
+- Migration drift giữa local và staging
+- CORS mismatch do sai `FRONTEND_URL`
+
+---
+
+## 25. THIRD-PARTY FALLBACK STRATEGY
+
+- **Cloudinary down:** queue upload retry + temporary local object storage fallback
+- **Email service down:** queue + retry + show non-blocking warning
+- **Payment gateway down:** cho phép COD fallback (nếu business rule cho phép)
+
+---
+
+## 26. MOBILE RESPONSIVENESS STRATEGY
+
+- Mobile-first với breakpoint rõ (`sm`, `md`, `lg`, `xl`)
+- Tối ưu touch targets (>= 44px)
+- Sticky actions cho checkout/cart/warranty forms trên mobile
+- Kiểm tra flow critical trên viewport nhỏ trước release
+
+---
+
+## 27. PHASE EXECUTION CHECKLIST (DoD + Acceptance + Owner)
+
+> Mục tiêu: chuyển plan thành **phase-gates có thể kiểm tra được** trước khi merge/release.
+
+### 27.1 Phase 1 — Foundation Gate
+
+**Owner chính:** Backend Lead (Auth/User) + Frontend Lead (Auth UI)
+
+**Deliverables bắt buộc:**
+
+- Auth flows: register/login/refresh/logout/verify/reset hoạt động end-to-end
+- RBAC guards + global validation/exception filter
+- Swagger cho auth/users APIs
+
+**Definition of Done (DoD):**
+
+- [ ] Unit tests cho auth service pass
+- [ ] Integration tests cho login/refresh pass
+- [ ] FE auth pages xử lý success/error/loading đầy đủ
+- [ ] Security baseline (password hash, token expiration, refresh rotation)
+
+**Acceptance Criteria (AC):**
+
+- [ ] User mới đăng ký + verify email thành công
+- [ ] Login sai mật khẩu trả error code đúng format
+- [ ] Refresh token cũ không dùng lại được sau rotate
+
+### 27.2 Phase 2 — Core Commerce Gate
+
+**Owner chính:** Product/Catalog Squad + Order/Checkout Squad
+
+**Deliverables bắt buộc:**
+
+- Product listing + detail + filter/sort/search/pagination
+- Cart + checkout + order creation flow
+- Category/brand/supplier CRUD (admin)
+
+**Definition of Done (DoD):**
+
+- [ ] Product APIs có pagination + filter server-side
+- [ ] Cart mutation APIs idempotent và validate stock cơ bản
+- [ ] FE checkout flow hoàn tất từ cart -> order created
+- [ ] E2E flow commerce pass trên staging
+
+**Acceptance Criteria (AC):**
+
+- [ ] User tạo order thành công với địa chỉ hợp lệ
+- [ ] Admin CRUD product/category/brand không lỗi
+- [ ] Order detail hiển thị snapshot item/price đúng tại thời điểm mua
+
+### 27.3 Phase 3 — Payment & Inventory Gate
+
+**Owner chính:** Payment Owner + Inventory Owner
+
+**Deliverables bắt buộc:**
+
+- Payment create/status/webhook hoàn chỉnh
+- Stock reservation + release + confirm
+- Inventory import/export/adjust + movement history
+
+**Definition of Done (DoD):**
+
+- [ ] Webhook signature validation + idempotency key implemented
+- [ ] Reservation transaction dùng row lock (`FOR UPDATE`)
+- [ ] Cron/job release reservation timeout chạy ổn định
+- [ ] Dashboard/log có metric payment success/failure
+
+**Acceptance Criteria (AC):**
+
+- [ ] Thanh toán thành công -> stock reserved được confirm
+- [ ] Thanh toán thất bại/timeout -> stock được release đầy đủ
+- [ ] Không xảy ra oversell trong test concurrent checkout
+
+### 27.4 Phase 4 — Business Logic Gate
+
+**Owner chính:** Warranty/Review Owner + PC Builder Owner
+
+**Deliverables bắt buộc:**
+
+- PC compatibility engine + rules management
+- Warranty ticket lifecycle + assign tech + repair logs
+- Review verified purchase + moderation
+
+**Definition of Done (DoD):**
+
+- [ ] Warranty status machine enforce transition hợp lệ
+- [ ] Review aggregate rating cập nhật đúng sau create/delete
+- [ ] Admin moderation pages có filter/search/pagination/export
+- [ ] Technician + customer flows được test integration
+
+**Acceptance Criteria (AC):**
+
+- [ ] Ticket không thể nhảy trạng thái trái workflow
+- [ ] Chỉ user mua hàng mới tạo review verified
+- [ ] PC build trả về issues/suggestions chính xác với rules hiện có
+
+### 27.5 Phase 5 — Notification & Dashboard Gate
+
+**Owner chính:** Realtime/Queue Owner + Analytics Owner
+
+**Deliverables bắt buộc:**
+
+- Notification queue + realtime delivery + read/unread flows
+- Dashboard APIs (overview/revenue/top-products/warranty/inventory alerts)
+- Dashboard UI charts/cards/tables
+
+**Definition of Done (DoD):**
+
+- [ ] Queue retry + dead-letter policy cấu hình
+- [ ] Socket reconnect + offline fallback được xử lý
+- [ ] Dashboard queries có cache TTL hợp lý
+- [ ] Alerting rule cơ bản hoạt động (error rate/latency)
+
+**Acceptance Criteria (AC):**
+
+- [ ] Event order/payment/warranty tạo notification đúng người nhận
+- [ ] Dashboard số liệu khớp với dữ liệu DB trong cùng time window
+- [ ] UI dashboard tải dưới ngưỡng p95 mục tiêu nội bộ
+
+### 27.6 Phase 6 — Production Gate
+
+**Owner chính:** Platform/DevOps Owner + Security Owner
+
+**Deliverables bắt buộc:**
+
+- CI/CD pipeline đầy đủ lint-test-build-deploy
+- Monitoring + health checks + centralized logging
+- Security hardening + backup/restore runbook
+
+**Definition of Done (DoD):**
+
+- [ ] Deploy staging + production có rollback procedure
+- [ ] Health endpoints live/ready/deps hoạt động
+- [ ] Sentry/log aggregation có trace requestId
+- [ ] Backup restore drill pass trong môi trường staging
+
+**Acceptance Criteria (AC):**
+
+- [ ] Release production không downtime ngoài planned window
+- [ ] P1 incident có playbook và on-call escalation rõ
+- [ ] Audit trail cho admin-critical actions truy vết được
+
+### 27.7 Global release checklist (áp dụng mọi phase)
+
+- [ ] Scope phase freeze, không nhận thêm feature ngoài phase
+- [ ] Tất cả API contract thay đổi đều cập nhật Swagger + changelog
+- [ ] Test evidence đính kèm PR (logs/screenshots/report)
+- [ ] Security checklist pass (validation, authz, rate-limit, upload rules)
+- [ ] Performance smoke test pass (latency/error budget nội bộ)
+- [ ] Runbook update: deploy, rollback, troubleshooting
+
+---
+
+## 28. EXECUTION BACKLOG MAPPING (BE / FE Admin / FE Client)
+
+> Dùng section này để bẻ phase-gate thành task có thể giao việc và track tiến độ theo repo.
+
+### 28.1 Task ID convention
+
+- Format: `P<phase>-<repo>-<number>`
+- `repo`:
+  - `BE` = `BeShopLapTop`
+  - `AD` = `fe-admin-laptop`
+  - `FE` = `FeShopLaptop`
+
+Ví dụ: `P4-AD-03` = task số 03 của Phase 4 thuộc FE Admin.
+
+### 28.2 Backlog mapping template
+
+| Task ID  | Repo     | Scope      | Owner  | Dependency       | Done khi nào?               |
+| -------- | -------- | ---------- | ------ | ---------------- | --------------------------- |
+| P?-??-?? | BE/AD/FE | Mô tả ngắn | @owner | Task ID trước đó | Link PR + test + build pass |
+
+### 28.3 Phase 1 mapping (Foundation)
+
+| Task ID  | Repo | Scope                                                    | Owner               | Dependency | Done khi nào?                   |
+| -------- | ---- | -------------------------------------------------------- | ------------------- | ---------- | ------------------------------- |
+| P1-BE-01 | BE   | Auth register/login/refresh/logout APIs + DTO validation | Backend Lead        | -          | Swagger + unit/integration pass |
+| P1-BE-02 | BE   | Email verify + forgot/reset + token rotation             | Backend Lead        | P1-BE-01   | E2E auth flow pass              |
+| P1-BE-03 | BE   | RBAC guard + global exception filter + error format      | Backend Lead        | P1-BE-01   | Error contract đúng Section 13  |
+| P1-FE-01 | FE   | Login/register/forgot/reset pages + form validation      | Frontend Lead       | P1-BE-01   | Happy/edge/error flow pass      |
+| P1-FE-02 | FE   | Session bootstrap + protected routes                     | Frontend Lead       | P1-BE-01   | Unauthorized redirect đúng      |
+| P1-AD-01 | AD   | Admin login shell + route guard cơ bản                   | Frontend Admin Lead | P1-BE-01   | Build pass + role guard pass    |
+
+### 28.4 Phase 2 mapping (Core Commerce)
+
+| Task ID  | Repo | Scope                                                     | Owner                  | Dependency | Done khi nào?                    |
+| -------- | ---- | --------------------------------------------------------- | ---------------------- | ---------- | -------------------------------- |
+| P2-BE-01 | BE   | Category/brand/supplier CRUD APIs                         | Backend Catalog Owner  | P1-BE-03   | CRUD + RBAC tests pass           |
+| P2-BE-02 | BE   | Product APIs (filter/sort/search/pagination/specs/images) | Backend Catalog Owner  | P2-BE-01   | Query perf baseline pass         |
+| P2-BE-03 | BE   | Cart APIs + validate stock snapshot                       | Backend Commerce Owner | P2-BE-02   | Cart integration tests pass      |
+| P2-BE-04 | BE   | Checkout + order create + order detail/list               | Backend Commerce Owner | P2-BE-03   | E2E checkout pass                |
+| P2-FE-01 | FE   | Product listing/detail + filter/search UI                 | Frontend Shop Owner    | P2-BE-02   | UX + loading/error states đầy đủ |
+| P2-FE-02 | FE   | Cart + checkout + order history pages                     | Frontend Shop Owner    | P2-BE-04   | End-to-end user flow pass        |
+| P2-AD-01 | AD   | Admin catalog management pages                            | Frontend Admin Lead    | P2-BE-02   | Create/edit/delete + build pass  |
+
+### 28.5 Phase 3 mapping (Payment & Inventory)
+
+| Task ID  | Repo | Scope                                              | Owner                   | Dependency | Done khi nào?                    |
+| -------- | ---- | -------------------------------------------------- | ----------------------- | ---------- | -------------------------------- |
+| P3-BE-01 | BE   | Payment create/status/webhook + signature validate | Backend Payment Owner   | P2-BE-04   | Idempotency + webhook tests pass |
+| P3-BE-02 | BE   | Stock reserve/release/confirm transaction-safe     | Backend Inventory Owner | P3-BE-01   | Concurrent checkout test pass    |
+| P3-BE-03 | BE   | Inventory import/export/adjust/movements APIs      | Backend Inventory Owner | P3-BE-02   | Audit + movement logs đúng       |
+| P3-FE-01 | FE   | Payment UI (QR/MoMo/COD) + status polling          | Frontend Shop Owner     | P3-BE-01   | Payment success/fail flow pass   |
+| P3-AD-01 | AD   | Inventory management pages                         | Frontend Admin Lead     | P3-BE-03   | CRUD/import-export flows pass    |
+
+### 28.6 Phase 4 mapping (Business Logic)
+
+| Task ID  | Repo | Scope                                                          | Owner                  | Dependency        | Done khi nào?                     |
+| -------- | ---- | -------------------------------------------------------------- | ---------------------- | ----------------- | --------------------------------- |
+| P4-BE-01 | BE   | Warranty module (ticket, assign, status workflow, logs)        | Backend Warranty Owner | P3-BE-02          | Workflow tests pass               |
+| P4-BE-02 | BE   | Review module (verified purchase, moderation APIs)             | Backend Review Owner   | P2-BE-04          | Aggregate rating đúng             |
+| P4-BE-03 | BE   | PC build compatibility rules engine                            | Backend PCBuild Owner  | P2-BE-02          | Compatibility scenarios pass      |
+| P4-FE-01 | FE   | Customer warranty submit/list/status pages                     | Frontend Shop Owner    | P4-BE-01          | User flow pass                    |
+| P4-FE-02 | FE   | Review form/list in product detail                             | Frontend Shop Owner    | P4-BE-02          | Verified UX + error handling pass |
+| P4-AD-01 | AD   | Warranty moderation dashboard + actions                        | Frontend Admin Lead    | P4-BE-01          | Filter/search/pagination pass     |
+| P4-AD-02 | AD   | Review moderation dashboard + actions                          | Frontend Admin Lead    | P4-BE-02          | Filter/search/pagination pass     |
+| P4-AD-03 | AD   | CSV export polish (field select/date format/BOM/quick actions) | Frontend Admin Lead    | P4-AD-01,P4-AD-02 | Export QA + build pass            |
+
+### 28.7 Phase 5 mapping (Notification & Dashboard)
+
+| Task ID  | Repo | Scope                                         | Owner                   | Dependency | Done khi nào?                 |
+| -------- | ---- | --------------------------------------------- | ----------------------- | ---------- | ----------------------------- |
+| P5-BE-01 | BE   | Notification queue + handlers + delivery APIs | Backend Realtime Owner  | P4-BE-01   | Queue retry/DLQ pass          |
+| P5-BE-02 | BE   | Dashboard aggregate APIs + caching            | Backend Analytics Owner | P5-BE-01   | p95 + cache hit target đạt    |
+| P5-FE-01 | FE   | Notification bell/list/realtime UI            | Frontend Shop Owner     | P5-BE-01   | Realtime + read state ổn định |
+| P5-AD-01 | AD   | Admin analytics dashboard charts/tables       | Frontend Admin Lead     | P5-BE-02   | Data consistency QA pass      |
+
+### 28.8 Phase 6 mapping (Production)
+
+| Task ID   | Repo     | Scope                                                        | Owner               | Dependency                 | Done khi nào?                      |
+| --------- | -------- | ------------------------------------------------------------ | ------------------- | -------------------------- | ---------------------------------- |
+| P6-BE-01  | BE       | Security hardening (rate-limit, upload rules, CORS, headers) | Security Owner      | P5-BE-02                   | Security checklist pass            |
+| P6-BE-02  | BE       | Monitoring/health/logging/Sentry integration                 | Platform Owner      | P6-BE-01                   | Alert + health endpoints pass      |
+| P6-BE-03  | BE       | Migration/backup/restore runbook + drill                     | Platform Owner      | P6-BE-02                   | Restore drill pass                 |
+| P6-FE-01  | FE       | Error boundaries + observability hooks                       | Frontend Lead       | P6-BE-02                   | Runtime error tracing pass         |
+| P6-AD-01  | AD       | Admin critical actions audit visibility                      | Frontend Admin Lead | P6-BE-02                   | Audit trace QA pass                |
+| P6-OPS-01 | BE/AD/FE | CI/CD workflow lint-test-build-deploy + rollback             | DevOps Owner        | P6-BE-03,P6-FE-01,P6-AD-01 | Staging + production release green |
+
+### 28.9 Current progress snapshot (update mỗi batch)
+
+- **Completed:** `P4-AD-03` (CSV export polish cho Warranty/Review moderation)
+- **In Progress:** cập nhật theo batch hiện tại
+- **Next suggested:**
+  1. `P5-BE-01` Notification queue hardening
+  2. `P5-AD-01` Dashboard admin analytics UI
+  3. `P6-BE-02` Observability baseline
 
 ---
 

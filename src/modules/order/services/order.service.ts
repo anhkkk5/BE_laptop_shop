@@ -4,6 +4,7 @@ import {
   NotFoundException,
   BadRequestException,
 } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { OrderRepository } from '../repositories/order.repository.js';
 import { CreateOrderDto } from '../dtos/create-order.dto.js';
 import { UpdateOrderStatusDto } from '../dtos/update-order-status.dto.js';
@@ -17,6 +18,7 @@ export class OrderService {
     private readonly orderRepository: OrderRepository,
     private readonly cartService: CartService,
     private readonly productService: ProductService,
+    private readonly eventEmitter: EventEmitter2,
   ) {}
 
   private generateOrderCode(): string {
@@ -82,6 +84,12 @@ export class OrderService {
 
       await this.cartService.clearCart(userId);
 
+      this.eventEmitter.emit('order.created', {
+        userId: order.userId,
+        orderId: order.id,
+        orderCode: order.orderCode,
+      });
+
       return order;
     } catch (error) {
       for (const item of deductedItems) {
@@ -121,6 +129,13 @@ export class OrderService {
     const order = await this.findById(orderId);
     order.status = dto.status;
     await this.orderRepository.save(order);
+
+    this.eventEmitter.emit('order.status_changed', {
+      userId: order.userId,
+      orderId: order.id,
+      orderCode: order.orderCode,
+      status: order.status,
+    });
   }
 
   async cancelMyOrder(userId: number, orderId: number): Promise<void> {
@@ -135,5 +150,11 @@ export class OrderService {
 
     order.status = OrderStatus.CANCELLED;
     await this.orderRepository.save(order);
+
+    this.eventEmitter.emit('order.cancelled', {
+      userId: order.userId,
+      orderId: order.id,
+      orderCode: order.orderCode,
+    });
   }
 }
