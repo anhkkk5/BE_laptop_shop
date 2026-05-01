@@ -12,6 +12,7 @@ import { CreateWarrantyTicketDto } from '../dtos/create-warranty-ticket.dto.js';
 import { AssignTicketDto } from '../dtos/assign-ticket.dto.js';
 import { UpdateTicketStatusDto } from '../dtos/update-ticket-status.dto.js';
 import { CreateRepairLogDto } from '../dtos/create-repair-log.dto.js';
+import { QueryAdminWarrantyDto } from '../dtos/query-admin-warranty.dto.js';
 import {
   WarrantyTicket,
   WarrantyTicketStatus,
@@ -131,12 +132,31 @@ export class WarrantyService {
     };
   }
 
-  async findAllTickets(page: number, limit: number) {
-    const [data, total] = await this.ticketRepo.findAndCount({
-      order: { createdAt: 'DESC' },
-      skip: (page - 1) * limit,
-      take: limit,
-    });
+  async findAllTickets(query: QueryAdminWarrantyDto) {
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 10;
+    const keyword = query.search?.trim();
+
+    const qb = this.ticketRepo
+      .createQueryBuilder('ticket')
+      .orderBy('ticket.createdAt', 'DESC')
+      .skip((page - 1) * limit)
+      .take(limit);
+
+    if (query.status) {
+      qb.andWhere('ticket.status = :status', { status: query.status });
+    }
+
+    if (keyword) {
+      qb.andWhere(
+        '(ticket.ticketCode LIKE :keyword OR ticket.productName LIKE :keyword)',
+        {
+          keyword: `%${keyword}%`,
+        },
+      );
+    }
+
+    const [data, total] = await qb.getManyAndCount();
 
     return {
       data,

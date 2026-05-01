@@ -8,9 +8,9 @@ import {
 } from '@nestjs/common';
 import { CurrentUser } from '../../../../common/decorators/current-user.decorator.js';
 import { Roles } from '../../../../common/decorators/roles.decorator.js';
-import { PaginationDto } from '../../../../common/dto/pagination.dto.js';
 import { UserRole } from '../../../user/enums/user-role.enum.js';
 import { ReviewService } from '../../services/review.service.js';
+import { QueryAdminReviewDto } from '../../dtos/query-admin-review.dto.js';
 
 @Controller('admin/reviews')
 @Roles(UserRole.ADMIN)
@@ -23,8 +23,8 @@ export class ReviewAdminController {
   }
 
   @Get()
-  async findAll(@Query() pagination: PaginationDto) {
-    return this.reviewService.findAll(pagination.page, pagination.limit);
+  async findAll(@Query() query: QueryAdminReviewDto) {
+    return this.reviewService.findAll(query);
   }
 
   @Delete(':id')

@@ -9,6 +9,7 @@ import { Repository } from 'typeorm';
 import { OrderService } from '../../order/services/order.service.js';
 import { UserRole } from '../../user/enums/user-role.enum.js';
 import { CreateReviewDto } from '../dtos/create-review.dto.js';
+import { QueryAdminReviewDto } from '../dtos/query-admin-review.dto.js';
 import { UpdateReviewDto } from '../dtos/update-review.dto.js';
 import { Review } from '../entities/review.entity.js';
 
@@ -52,12 +53,37 @@ export class ReviewService {
     };
   }
 
-  async findAll(page: number, limit: number) {
-    const [data, total] = await this.reviewRepo.findAndCount({
-      order: { createdAt: 'DESC' },
-      skip: (page - 1) * limit,
-      take: limit,
-    });
+  async findAll(query: QueryAdminReviewDto) {
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 10;
+    const keyword = query.search?.trim();
+
+    const qb = this.reviewRepo
+      .createQueryBuilder('review')
+      .orderBy('review.createdAt', 'DESC')
+      .skip((page - 1) * limit)
+      .take(limit);
+
+    if (query.rating) {
+      qb.andWhere('review.rating = :rating', { rating: query.rating });
+    }
+
+    if (query.isVerified !== undefined) {
+      qb.andWhere('review.isVerified = :isVerified', {
+        isVerified: query.isVerified,
+      });
+    }
+
+    if (keyword) {
+      qb.andWhere(
+        '(CAST(review.productId AS CHAR) LIKE :keyword OR CAST(review.userId AS CHAR) LIKE :keyword OR review.comment LIKE :keyword)',
+        {
+          keyword: `%${keyword}%`,
+        },
+      );
+    }
+
+    const [data, total] = await qb.getManyAndCount();
 
     return {
       data,

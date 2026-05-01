@@ -9,11 +9,11 @@ import {
 } from '@nestjs/common';
 import { CurrentUser } from '../../../../common/decorators/current-user.decorator.js';
 import { Roles } from '../../../../common/decorators/roles.decorator.js';
-import { PaginationDto } from '../../../../common/dto/pagination.dto.js';
 import { UserRole } from '../../../user/enums/user-role.enum.js';
 import { WarrantyService } from '../../services/warranty.service.js';
 import { AssignTicketDto } from '../../dtos/assign-ticket.dto.js';
 import { UpdateTicketStatusDto } from '../../dtos/update-ticket-status.dto.js';
+import { QueryAdminWarrantyDto } from '../../dtos/query-admin-warranty.dto.js';
 
 @Controller('admin/warranty')
 @Roles(UserRole.ADMIN, UserRole.TECHNICIAN)
@@ -26,11 +26,8 @@ export class WarrantyAdminController {
   }
 
   @Get('all')
-  async findAll(@Query() pagination: PaginationDto) {
-    return this.warrantyService.findAllTickets(
-      pagination.page,
-      pagination.limit,
-    );
+  async findAll(@Query() query: QueryAdminWarrantyDto) {
+    return this.warrantyService.findAllTickets(query);
   }
 
   @Patch(':id/assign')
