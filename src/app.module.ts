@@ -24,6 +24,7 @@ import { CartModule } from './modules/cart/cart.module.js';
 import { OrderModule } from './modules/order/order.module.js';
 import { PaymentModule } from './modules/payment/payment.module.js';
 import { PcBuildModule } from './modules/pc-build/pc-build.module.js';
+import { WarrantyModule } from './modules/warranty/warranty.module.js';
 import { AdminSeed } from './database/seeds/admin.seed.js';
 
 @Module({
@@ -72,6 +73,7 @@ import { AdminSeed } from './database/seeds/admin.seed.js';
     OrderModule,
     PaymentModule,
     PcBuildModule,
+    WarrantyModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: JwtAuthGuard },
