@@ -14,6 +14,7 @@ import {
   Notification,
   NotificationType,
 } from '../entities/notification.entity.js';
+import { NotificationStreamService } from './notification-stream.service.js';
 
 type NotificationJob = {
   userId: number;
@@ -41,6 +42,7 @@ export class NotificationService implements OnModuleInit, OnModuleDestroy {
     @InjectRepository(Notification)
     private readonly notificationRepo: Repository<Notification>,
     @InjectRedis() private readonly redis: Redis,
+    private readonly notificationStreamService: NotificationStreamService,
   ) {}
 
   onModuleInit() {
@@ -239,7 +241,7 @@ export class NotificationService implements OnModuleInit, OnModuleDestroy {
     }
 
     try {
-      await this.notificationRepo.save(
+      const notification = await this.notificationRepo.save(
         this.notificationRepo.create({
           userId: job.userId,
           type: job.type,
@@ -249,6 +251,7 @@ export class NotificationService implements OnModuleInit, OnModuleDestroy {
           isRead: false,
         }),
       );
+      this.notificationStreamService.publishToUser(job.userId, notification);
     } catch (error) {
       const nextAttempt = job.attempts + 1;
       const retryJob = JSON.stringify({ ...job, attempts: nextAttempt });
