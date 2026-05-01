@@ -5,6 +5,7 @@ import helmet from 'helmet';
 import { AppModule } from './app.module.js';
 import { GlobalExceptionFilter } from './common/filters/http-exception.filter.js';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor.js';
+import { LoggingInterceptor } from './common/interceptors/logging.interceptor.js';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -38,7 +39,10 @@ async function bootstrap() {
   );
 
   app.useGlobalFilters(new GlobalExceptionFilter());
-  app.useGlobalInterceptors(new TransformInterceptor());
+  app.useGlobalInterceptors(
+    new LoggingInterceptor(),
+    new TransformInterceptor(),
+  );
 
   const swaggerConfig = new DocumentBuilder()
     .setTitle('Smart Laptop Store API')
