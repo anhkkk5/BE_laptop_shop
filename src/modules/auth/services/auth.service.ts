@@ -11,7 +11,6 @@ import { Redis } from 'ioredis';
 import { InjectRedis } from '@nestjs-modules/ioredis';
 import { UserService } from '../../user/services/user.service.js';
 import { RegisterDto } from '../dtos/register.dto.js';
-import { TokenResponseDto } from '../dtos/token-response.dto.js';
 import { User } from '../../user/entities/user.entity.js';
 import { JwtPayload } from '../strategies/jwt.strategy.js';
 import { UserRole } from '../../user/enums/user-role.enum.js';
@@ -49,7 +48,10 @@ export class AuthService {
     );
   }
 
-  async register(dto: RegisterDto): Promise<TokenResponseDto> {
+  async register(dto: RegisterDto): Promise<{
+    user: Omit<User, 'password' | 'refreshToken'>;
+    tokens: { accessToken: string; refreshToken: string };
+  }> {
     const existing = await this.userService.findByEmail(dto.email);
     if (existing) throw new ConflictException('Email already exists');
 
@@ -69,7 +71,10 @@ export class AuthService {
 
     await this.sendVerificationEmail(user.email);
 
-    return tokens;
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { password, refreshToken, ...userWithoutSensitiveData } = user;
+
+    return { user: userWithoutSensitiveData, tokens };
   }
 
   async sendVerificationEmail(email: string): Promise<void> {
@@ -139,17 +144,23 @@ export class AuthService {
     return result;
   }
 
-  async login(user: {
-    id: number;
-    email: string;
-    role: string;
-  }): Promise<TokenResponseDto> {
+  async login(user: { id: number; email: string; role: string }): Promise<{
+    user: Omit<User, 'password' | 'refreshToken'>;
+    tokens: { accessToken: string; refreshToken: string };
+  }> {
     const fullUser = await this.userService.findById(user.id);
     await this.userService.updateLastLogin(user.id);
-    return this.generateTokens(fullUser);
+    const tokens = await this.generateTokens(fullUser);
+
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { password, refreshToken, ...userWithoutSensitiveData } = fullUser;
+
+    return { user: userWithoutSensitiveData, tokens };
   }
 
-  async refreshTokens(refreshToken: string): Promise<TokenResponseDto> {
+  async refreshTokens(
+    refreshToken: string,
+  ): Promise<{ accessToken: string; refreshToken: string }> {
     try {
       const payload = this.jwtService.verify<JwtPayload>(refreshToken, {
         secret: this.refreshSecret,
@@ -181,7 +192,10 @@ export class AuthService {
     email: string;
     fullName: string;
     avatar?: string;
-  }): Promise<TokenResponseDto> {
+  }): Promise<{
+    user: Omit<User, 'password' | 'refreshToken'>;
+    tokens: { accessToken: string; refreshToken: string };
+  }> {
     let user = await this.userService.findByGoogleId(googleUser.googleId);
 
     if (!user) {
@@ -204,10 +218,17 @@ export class AuthService {
     }
 
     await this.userService.updateLastLogin(user.id);
-    return this.generateTokens(user);
+    const tokens = await this.generateTokens(user);
+
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { password, refreshToken, ...userWithoutSensitiveData } = user;
+
+    return { user: userWithoutSensitiveData, tokens };
   }
 
-  private async generateTokens(user: User): Promise<TokenResponseDto> {
+  private async generateTokens(
+    user: User,
+  ): Promise<{ accessToken: string; refreshToken: string }> {
     const payload: JwtPayload = {
       sub: user.id,
       email: user.email,
@@ -236,7 +257,6 @@ export class AuthService {
     return {
       accessToken,
       refreshToken,
-      expiresIn: this.accessExpiresIn,
     };
   }
 

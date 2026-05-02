@@ -10,6 +10,7 @@ import {
   HttpStatus,
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
+import { ConfigService } from '@nestjs/config';
 import type { Request, Response } from 'express';
 import { AuthService } from '../../services/auth.service.js';
 import { RegisterDto } from '../../dtos/register.dto.js';
@@ -21,39 +22,82 @@ import {
 import { LocalAuthGuard } from '../../guards/local-auth.guard.js';
 import { Public, CurrentUser } from '../../../../common/decorators/index.js';
 import { AuthGuard } from '@nestjs/passport';
+import {
+  setAuthCookies,
+  clearAuthCookies,
+} from '../../../../common/utils/cookie.util.js';
 
 @ApiTags('Auth')
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(
+    private readonly authService: AuthService,
+    private readonly configService: ConfigService,
+  ) {}
 
   @Public()
   @Post('register')
-  async register(@Body() dto: RegisterDto) {
-    return this.authService.register(dto);
+  async register(
+    @Body() dto: RegisterDto,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const { user, tokens } = await this.authService.register(dto);
+    setAuthCookies(
+      res,
+      tokens.accessToken,
+      tokens.refreshToken,
+      this.configService,
+    );
+    return { user };
   }
 
   @Public()
   @UseGuards(LocalAuthGuard)
   @HttpCode(HttpStatus.OK)
   @Post('login')
-  async login(@Req() req: Request) {
+  async login(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
     const user = req.user as { id: number; email: string; role: string };
-    return this.authService.login(user);
+    const { user: userData, tokens } = await this.authService.login(user);
+    setAuthCookies(
+      res,
+      tokens.accessToken,
+      tokens.refreshToken,
+      this.configService,
+    );
+    return { user: userData };
   }
 
   @Post('logout')
   @HttpCode(HttpStatus.OK)
-  async logout(@Body('refreshToken') refreshToken: string) {
-    await this.authService.logout(refreshToken);
+  async logout(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
+    const refreshToken = req.cookies?.refresh_token;
+    if (refreshToken) {
+      await this.authService.logout(refreshToken);
+    }
+    clearAuthCookies(res);
     return { message: 'Logged out successfully' };
   }
 
   @Public()
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
-  async refresh(@Body('refreshToken') refreshToken: string) {
-    return this.authService.refreshTokens(refreshToken);
+  async refresh(
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const refreshToken = req.cookies?.refresh_token;
+    if (!refreshToken) {
+      clearAuthCookies(res);
+      throw new Error('Refresh token not found');
+    }
+    const tokens = await this.authService.refreshTokens(refreshToken);
+    setAuthCookies(
+      res,
+      tokens.accessToken,
+      tokens.refreshToken,
+      this.configService,
+    );
+    return { message: 'Token refreshed successfully' };
   }
 
   @Get('me')
@@ -106,10 +150,15 @@ export class AuthController {
       fullName: string;
       avatar?: string;
     };
-    const tokens = await this.authService.googleLogin(googleUser);
-    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3002';
-    res.redirect(
-      `${frontendUrl}/auth/callback?accessToken=${tokens.accessToken}&refreshToken=${tokens.refreshToken}`,
+    const { tokens } = await this.authService.googleLogin(googleUser);
+    setAuthCookies(
+      res,
+      tokens.accessToken,
+      tokens.refreshToken,
+      this.configService,
     );
+
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3002';
+    res.redirect(`${frontendUrl}/auth/callback?success=true`);
   }
 }

@@ -2,6 +2,7 @@ import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import helmet from 'helmet';
+import cookieParser from 'cookie-parser';
 import { AppModule } from './app.module.js';
 import { GlobalExceptionFilter } from './common/filters/http-exception.filter.js';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor.js';
@@ -10,13 +11,14 @@ import { LoggingInterceptor } from './common/interceptors/logging.interceptor.js
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
-  const port = parseInt(process.env.PORT || '3100', 10);
+  const port = parseInt(process.env.PORT || '3001', 10);
   const apiPrefix = process.env.API_PREFIX || 'api/v1';
   const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3002';
 
   app.setGlobalPrefix(apiPrefix);
 
   app.use(helmet());
+  app.use(cookieParser());
 
   app.enableCors({
     origin: [
