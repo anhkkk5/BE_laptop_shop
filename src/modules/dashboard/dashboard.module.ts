@@ -10,7 +10,13 @@ import { DashboardService } from './services/dashboard.service.js';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Order, OrderItem, Payment, Product, WarrantyTicket]),
+    TypeOrmModule.forFeature([
+      Order,
+      OrderItem,
+      Payment,
+      Product,
+      WarrantyTicket,
+    ]),
   ],
   controllers: [DashboardController],
   providers: [DashboardService],

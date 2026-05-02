@@ -3,8 +3,14 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Order, OrderStatus } from '../../order/entities/order.entity.js';
 import { OrderItem } from '../../order/entities/order-item.entity.js';
-import { Payment, PaymentStatus } from '../../payment/entities/payment.entity.js';
-import { Product } from '../../product/entities/product.entity.js';
+import {
+  Payment,
+  PaymentStatus,
+} from '../../payment/entities/payment.entity.js';
+import {
+  Product,
+  ProductStatus,
+} from '../../product/entities/product.entity.js';
 import { WarrantyTicket } from '../../warranty/entities/warranty-ticket.entity.js';
 import { DashboardQueryDto } from '../dtos/dashboard-query.dto.js';
 
@@ -69,7 +75,12 @@ export class DashboardService {
   }
 
   private applyDateRange(
-    qb: { andWhere: (condition: string, parameters?: Record<string, unknown>) => unknown },
+    qb: {
+      andWhere: (
+        condition: string,
+        parameters?: Record<string, unknown>,
+      ) => unknown;
+    },
     alias: string,
     dateRange: DateRange,
   ): void {
@@ -93,7 +104,7 @@ export class DashboardService {
 
     this.applyDateRange(qb, 'p', dateRange);
 
-    const result = await qb.getRawOne();
+    const result = await qb.getRawOne<{ revenue: string | number }>();
     return Number(result?.revenue ?? 0);
   }
 
@@ -104,13 +115,13 @@ export class DashboardService {
 
     this.applyDateRange(qb, 'o', dateRange);
 
-    const result = await qb.getRawOne();
+    const result = await qb.getRawOne<{ count: string | number }>();
     return Number(result?.count ?? 0);
   }
 
   private async getProductCount(): Promise<number> {
     const count = await this.productRepo.count({
-      where: { status: 'active' as never },
+      where: { status: ProductStatus.ACTIVE },
     });
     return count;
   }
@@ -122,7 +133,7 @@ export class DashboardService {
 
     this.applyDateRange(qb, 'w', dateRange);
 
-    const result = await qb.getRawOne();
+    const result = await qb.getRawOne<{ count: string | number }>();
     return Number(result?.count ?? 0);
   }
 
@@ -137,7 +148,7 @@ export class DashboardService {
 
     this.applyDateRange(qb, 'p', dateRange);
 
-    const rows = await qb.getRawMany();
+    const rows = await qb.getRawMany<{ status: unknown; amount: unknown }>();
     return rows.map((row) => ({
       status: String(row.status),
       amount: Number(row.amount),
@@ -155,7 +166,7 @@ export class DashboardService {
 
     this.applyDateRange(qb, 'o', dateRange);
 
-    const rows = await qb.getRawMany();
+    const rows = await qb.getRawMany<{ status: unknown; count: unknown }>();
     return rows.map((row) => ({
       status: String(row.status),
       count: Number(row.count),
@@ -165,7 +176,14 @@ export class DashboardService {
   private async getTopProducts(
     dateRange: DateRange,
     limit: number,
-  ): Promise<{ productId: number; productName: string; totalSold: number; revenue: number }[]> {
+  ): Promise<
+    {
+      productId: number;
+      productName: string;
+      totalSold: number;
+      revenue: number;
+    }[]
+  > {
     const qb = this.orderItemRepo
       .createQueryBuilder('oi')
       .select('oi.product_id', 'productId')
@@ -183,7 +201,12 @@ export class DashboardService {
 
     this.applyDateRange(qb, 'o', dateRange);
 
-    const rows = await qb.getRawMany();
+    const rows = await qb.getRawMany<{
+      productId: unknown;
+      productName: unknown;
+      totalSold: unknown;
+      revenue: unknown;
+    }>();
     return rows.map((row) => ({
       productId: Number(row.productId),
       productName: String(row.productName),
@@ -203,20 +226,34 @@ export class DashboardService {
 
     this.applyDateRange(qb, 'w', dateRange);
 
-    const rows = await qb.getRawMany();
+    const rows = await qb.getRawMany<{ status: unknown; count: unknown }>();
     return rows.map((row) => ({
       status: String(row.status),
       count: Number(row.count),
     }));
   }
 
-  private async getRecentOrders(
-    limit: number,
-  ): Promise<{ id: number; orderCode: string; customerName: string; total: number; status: string; createdAt: string }[]> {
+  private async getRecentOrders(limit: number): Promise<
+    {
+      id: number;
+      orderCode: string;
+      customerName: string;
+      total: number;
+      status: string;
+      createdAt: string;
+    }[]
+  > {
     const orders = await this.orderRepo.find({
       order: { createdAt: 'DESC' },
       take: limit,
-      select: ['id', 'orderCode', 'customerName', 'total', 'status', 'createdAt'],
+      select: [
+        'id',
+        'orderCode',
+        'customerName',
+        'total',
+        'status',
+        'createdAt',
+      ],
     });
 
     return orders.map((o) => ({

@@ -22,9 +22,14 @@ describe('NotificationService', () => {
       zadd: jest.fn(),
     };
 
+    const streamService = {
+      publishToUser: jest.fn(),
+    };
+
     const service = new NotificationService(
       notificationRepo as never,
       redis as never,
+      streamService as never,
     );
 
     return { service, redis };
