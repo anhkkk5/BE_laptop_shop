@@ -3,6 +3,7 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { CreatePaymentDto } from '../dtos/create-payment.dto.js';
 import { PaymentRepository } from '../repositories/payment.repository.js';
 import { OrderService } from '../../order/services/order.service.js';
+import { StockReservationService } from '../../inventory/services/stock-reservation.service.js';
 import {
   Payment,
   PaymentMethod,
@@ -15,6 +16,7 @@ export class PaymentService {
   constructor(
     private readonly paymentRepository: PaymentRepository,
     private readonly orderService: OrderService,
+    private readonly reservationService: StockReservationService,
     private readonly eventEmitter: EventEmitter2,
   ) {}
 
@@ -44,6 +46,7 @@ export class PaymentService {
     });
 
     if (isCod) {
+      await this.reservationService.confirm(payment.orderId);
       this.eventEmitter.emit('payment.completed', {
         userId: payment.userId,
         orderId: payment.orderId,
@@ -90,6 +93,8 @@ export class PaymentService {
       });
     }
 
+    await this.reservationService.confirm(payment.orderId);
+
     this.eventEmitter.emit('payment.completed', {
       userId: payment.userId,
       orderId: payment.orderId,
@@ -107,6 +112,8 @@ export class PaymentService {
 
     payment.status = PaymentStatus.FAILED;
     payment.note = 'Thanh toán online thất bại (simulate)';
+
+    await this.reservationService.release(payment.orderId);
 
     this.eventEmitter.emit('payment.failed', {
       userId: payment.userId,

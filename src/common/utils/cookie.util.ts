@@ -30,7 +30,7 @@ export function setAuthCookies(
   const accessTokenOptions: CookieOptions = {
     httpOnly: true,
     secure: isProduction, // Only HTTPS in production
-    sameSite: 'strict',
+    sameSite: 'lax',
     maxAge: 900000, // 15 minutes in milliseconds
     path: '/',
   };
@@ -39,7 +39,7 @@ export function setAuthCookies(
   const refreshTokenOptions: CookieOptions = {
     httpOnly: true,
     secure: isProduction, // Only HTTPS in production
-    sameSite: 'strict',
+    sameSite: 'lax',
     maxAge: 604800000, // 7 days in milliseconds
     path: '/',
   };
@@ -52,11 +52,17 @@ export function setAuthCookies(
  * Clear authentication cookies (logout)
  * @param res Express Response object
  */
-export function clearAuthCookies(res: Response): void {
+export function clearAuthCookies(
+  res: Response,
+  configService?: ConfigService,
+): void {
+  const isProduction =
+    configService?.get<string>('NODE_ENV') === 'production' || false;
+
   const clearOptions: CookieOptions = {
     httpOnly: true,
-    secure: true,
-    sameSite: 'strict',
+    secure: isProduction,
+    sameSite: 'lax',
     maxAge: 0, // Expire immediately
     path: '/',
   };

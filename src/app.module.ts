@@ -5,6 +5,7 @@ import { RedisModule } from '@nestjs-modules/ioredis';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { APP_GUARD } from '@nestjs/core';
+import { BullModule } from '@nestjs/bullmq';
 import {
   appConfig,
   databaseConfig,
@@ -28,12 +29,14 @@ import { WarrantyModule } from './modules/warranty/warranty.module.js';
 import { ReviewModule } from './modules/review/review.module.js';
 import { NotificationModule } from './modules/notification/notification.module.js';
 import { DashboardModule } from './modules/dashboard/dashboard.module.js';
+import { InventoryModule } from './modules/inventory/inventory.module.js';
 import { AdminSeed } from './database/seeds/admin.seed.js';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
+      envFilePath: '.env',
       load: [appConfig, databaseConfig, redisConfig, jwtConfig, mailConfig],
       validate,
     }),
@@ -55,10 +58,22 @@ import { AdminSeed } from './database/seeds/admin.seed.js';
 
     RedisModule.forRootAsync({
       inject: [ConfigService],
-      useFactory: (config: ConfigService) => ({
-        type: 'single' as const,
-        url: `redis://${config.get<string>('redis.username', 'default')}:${config.get<string>('redis.password')}@${config.get<string>('redis.host')}:${config.get<number>('redis.port')}`,
-      }),
+      useFactory: (config: ConfigService) => {
+        const password = config.get<string>('redis.password');
+        const options: any = {
+          type: 'single' as const,
+          options: {
+            host: config.get<string>('redis.host'),
+            port: config.get<number>('redis.port'),
+          },
+        };
+        if (password) {
+          options.options.password = password;
+          options.options.username =
+            config.get<string>('redis.username', 'default') || 'default';
+        }
+        return options;
+      },
     }),
 
     ThrottlerModule.forRoot({
@@ -66,6 +81,23 @@ import { AdminSeed } from './database/seeds/admin.seed.js';
     }),
 
     EventEmitterModule.forRoot(),
+
+    BullModule.forRootAsync({
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => {
+        const password = config.get<string>('redis.password');
+        const connection: Record<string, unknown> = {
+          host: config.get<string>('redis.host'),
+          port: config.get<number>('redis.port'),
+        };
+        if (password) {
+          (connection as any).password = password;
+          (connection as any).username =
+            config.get<string>('redis.username', 'default') || 'default';
+        }
+        return { connection };
+      },
+    }),
 
     AuthModule,
     UserModule,
@@ -80,6 +112,7 @@ import { AdminSeed } from './database/seeds/admin.seed.js';
     ReviewModule,
     NotificationModule,
     DashboardModule,
+    InventoryModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: JwtAuthGuard },

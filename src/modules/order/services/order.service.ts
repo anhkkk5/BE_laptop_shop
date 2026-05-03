@@ -10,14 +10,14 @@ import { CreateOrderDto } from '../dtos/create-order.dto.js';
 import { UpdateOrderStatusDto } from '../dtos/update-order-status.dto.js';
 import { Order, OrderStatus } from '../entities/order.entity.js';
 import { CartService } from '../../cart/services/cart.service.js';
-import { ProductService } from '../../product/services/product.service.js';
+import { StockReservationService } from '../../inventory/services/stock-reservation.service.js';
 
 @Injectable()
 export class OrderService {
   constructor(
     private readonly orderRepository: OrderRepository,
     private readonly cartService: CartService,
-    private readonly productService: ProductService,
+    private readonly reservationService: StockReservationService,
     private readonly eventEmitter: EventEmitter2,
   ) {}
 
@@ -33,26 +33,16 @@ export class OrderService {
       throw new BadRequestException('Cart is empty');
     }
 
-    const deductedItems: Array<{ productId: number; quantity: number }> = [];
+    const reserveItems = cart.items.map((item) => ({
+      productId: item.productId,
+      quantity: item.quantity,
+    }));
 
     try {
-      for (const item of cart.items) {
-        const deducted = await this.productService.decreaseStockIfEnough(
-          item.productId,
-          item.quantity,
-        );
-
-        if (!deducted) {
-          throw new BadRequestException(
-            `Not enough stock for product: ${item.productName}`,
-          );
-        }
-
-        deductedItems.push({
-          productId: item.productId,
-          quantity: item.quantity,
-        });
-      }
+      await this.reservationService.reserve(
+        0, // placeholder, will update after order creation
+        reserveItems,
+      );
 
       const subtotal = cart.summary.subtotal;
       const shippingFee = 0;
@@ -82,6 +72,10 @@ export class OrderService {
         })),
       });
 
+      // Re-reserve with correct orderId then clear cart
+      await this.reservationService.release(0);
+      await this.reservationService.reserve(order.id, reserveItems);
+
       await this.cartService.clearCart(userId);
 
       this.eventEmitter.emit('order.created', {
@@ -92,9 +86,7 @@ export class OrderService {
 
       return order;
     } catch (error) {
-      for (const item of deductedItems) {
-        await this.productService.increaseStock(item.productId, item.quantity);
-      }
+      await this.reservationService.release(0);
       throw error;
     }
   }
@@ -144,9 +136,7 @@ export class OrderService {
       throw new BadRequestException('Only pending orders can be cancelled');
     }
 
-    for (const item of order.items) {
-      await this.productService.increaseStock(item.productId, item.quantity);
-    }
+    await this.reservationService.release(order.id);
 
     order.status = OrderStatus.CANCELLED;
     await this.orderRepository.save(order);

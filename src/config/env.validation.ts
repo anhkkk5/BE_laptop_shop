@@ -21,7 +21,7 @@ class EnvironmentVariables {
 
   @IsNumber()
   @Min(1)
-  PORT: number = 3100;
+  PORT: number = 3001;
 
   @IsString()
   @IsOptional()
@@ -132,6 +132,47 @@ class EnvironmentVariables {
   @IsString()
   @IsOptional()
   CLOUDINARY_API_SECRET: string = '';
+
+  // Payment Gateway
+  @IsString()
+  @IsOptional()
+  VIETQR_BANK_ID: string = '970422';
+
+  @IsString()
+  @IsOptional()
+  VIETQR_ACCOUNT_NO: string = '';
+
+  @IsString()
+  @IsOptional()
+  VIETQR_ACCOUNT_NAME: string = '';
+
+  @IsString()
+  @IsOptional()
+  VIETQR_TEMPLATE: string = 'compact2';
+
+  @IsString()
+  @IsOptional()
+  MOMO_PARTNER_CODE: string = '';
+
+  @IsString()
+  @IsOptional()
+  MOMO_ACCESS_KEY: string = '';
+
+  @IsString()
+  @IsOptional()
+  MOMO_SECRET_KEY: string = '';
+
+  @IsString()
+  @IsOptional()
+  MOMO_ENDPOINT: string = 'https://test-payment.momo.vn/v2/gateway/api/create';
+
+  @IsString()
+  @IsOptional()
+  MOMO_RETURN_URL: string = '';
+
+  @IsString()
+  @IsOptional()
+  MOMO_NOTIFY_URL: string = '';
 
   // Admin seed
   @IsString()
