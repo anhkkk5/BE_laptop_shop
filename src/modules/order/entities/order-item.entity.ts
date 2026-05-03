@@ -7,6 +7,7 @@ import {
   CreateDateColumn,
 } from 'typeorm';
 import { Order } from './order.entity.js';
+import type { Product } from '../../product/entities/product.entity.js';
 
 @Entity('order_items')
 export class OrderItem {
@@ -45,4 +46,8 @@ export class OrderItem {
   @ManyToOne(() => Order, (order) => order.items, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'order_id' })
   order!: Order;
+
+  @ManyToOne('Product', { onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'product_id' })
+  product!: Product;
 }

@@ -150,6 +150,25 @@ export class ProductRepository {
     await this.repo.increment({ id }, 'stockQuantity', quantity);
   }
 
+  async updateRatingStats(productId: number): Promise<void> {
+    const result = await this.repo
+      .createQueryBuilder()
+      .select('COUNT(*)', 'reviewCount')
+      .addSelect('COALESCE(AVG(review.rating), 0)', 'ratingAvg')
+      .from('reviews', 'review')
+      .where('review.product_id = :productId', { productId })
+      .getRawOne<{ reviewCount: string; ratingAvg: string }>();
+
+    await this.repo.update(productId, {
+      reviewCount: Number(result?.reviewCount || 0),
+      ratingAvg: Number(Number(result?.ratingAvg || 0).toFixed(2)),
+    });
+  }
+
+  async incrementSoldCount(id: number, quantity: number): Promise<void> {
+    await this.repo.increment({ id }, 'soldCount', quantity);
+  }
+
   async getInventorySummary(lowStockThreshold: number) {
     const [totalProducts, outOfStock, lowStock] = await Promise.all([
       this.repo.count(),

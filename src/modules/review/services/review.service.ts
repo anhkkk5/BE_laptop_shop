@@ -7,6 +7,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { OrderService } from '../../order/services/order.service.js';
+import { ProductService } from '../../product/services/product.service.js';
 import { UserRole } from '../../user/enums/user-role.enum.js';
 import { CreateReviewDto } from '../dtos/create-review.dto.js';
 import { QueryAdminReviewDto } from '../dtos/query-admin-review.dto.js';
@@ -19,6 +20,7 @@ export class ReviewService {
     @InjectRepository(Review)
     private readonly reviewRepo: Repository<Review>,
     private readonly orderService: OrderService,
+    private readonly productService: ProductService,
   ) {}
 
   private async ensureExists(reviewId: number): Promise<Review> {
@@ -164,7 +166,9 @@ export class ReviewService {
       isVerified: true,
     });
 
-    return this.reviewRepo.save(review);
+    const saved = await this.reviewRepo.save(review);
+    await this.productService.updateRatingStats(saved.productId);
+    return saved;
   }
 
   async update(reviewId: number, userId: number, dto: UpdateReviewDto) {
@@ -185,7 +189,9 @@ export class ReviewService {
       review.images = dto.images;
     }
 
-    return this.reviewRepo.save(review);
+    const saved = await this.reviewRepo.save(review);
+    await this.productService.updateRatingStats(saved.productId);
+    return saved;
   }
 
   async remove(reviewId: number, userId: number, role: UserRole) {
@@ -195,7 +201,9 @@ export class ReviewService {
       throw new ForbiddenException('You cannot delete this review');
     }
 
+    const { productId } = review;
     await this.reviewRepo.delete(reviewId);
+    await this.productService.updateRatingStats(productId);
     return { deleted: true };
   }
 }

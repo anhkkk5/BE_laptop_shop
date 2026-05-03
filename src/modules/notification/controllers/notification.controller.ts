@@ -6,11 +6,13 @@ import {
   ParseIntPipe,
   Patch,
   Query,
+  Req,
   Sse,
   UnauthorizedException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
+import type { Request } from 'express';
 import { Observable } from 'rxjs';
 import { CurrentUser, Public } from '../../../common/decorators/index.js';
 import { QueryNotificationDto } from '../dtos/query-notification.dto.js';
@@ -58,12 +60,21 @@ export class NotificationController {
 
   @Public()
   @Sse('stream')
-  stream(@Query('token') token?: string): Observable<MessageEvent> {
-    const userId = this.resolveUserIdFromToken(token);
+  stream(
+    @Req() req: Request,
+    @Query('token') token?: string,
+  ): Observable<MessageEvent> {
+    const userId = this.resolveUserIdFromToken(req, token);
     return this.notificationStreamService.subscribe(userId);
   }
 
-  private resolveUserIdFromToken(token?: string): number {
+  private resolveUserIdFromToken(req: Request, queryToken?: string): number {
+    const bearerToken = req.headers.authorization?.startsWith('Bearer ')
+      ? req.headers.authorization.slice(7)
+      : undefined;
+    const cookieToken = req.cookies?.access_token as string | undefined;
+    const token = queryToken ?? cookieToken ?? bearerToken;
+
     if (!token) {
       throw new UnauthorizedException('Missing access token');
     }

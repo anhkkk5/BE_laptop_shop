@@ -8,6 +8,9 @@ import {
 } from 'typeorm';
 import { UserRole } from '../enums/user-role.enum.js';
 import { Address } from './address.entity.js';
+import type { Order } from '../../order/entities/order.entity.js';
+import type { Review } from '../../review/entities/review.entity.js';
+import type { Product } from '../../product/entities/product.entity.js';
 
 @Entity('users')
 export class User {
@@ -63,4 +66,13 @@ export class User {
 
   @OneToMany(() => Address, (address) => address.user)
   addresses!: Address[];
+
+  @OneToMany('Order', 'user')
+  orders!: Order[];
+
+  @OneToMany('Review', 'user')
+  reviews!: Review[];
+
+  @OneToMany('Product', 'seller')
+  sellerProducts!: Product[];
 }

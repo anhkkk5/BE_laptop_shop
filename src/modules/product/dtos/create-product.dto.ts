@@ -80,6 +80,10 @@ export class CreateProductDto {
   brandId?: number;
 
   @IsOptional()
+  @IsInt()
+  sellerId?: number;
+
+  @IsOptional()
   @IsEnum(ProductStatus)
   status?: ProductStatus;
 

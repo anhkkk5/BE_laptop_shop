@@ -11,6 +11,7 @@ import {
 import { Category } from '../../category/entities/category.entity.js';
 import { Brand } from '../../brand/entities/brand.entity.js';
 import { ProductImage } from './product-image.entity.js';
+import type { User } from '../../user/entities/user.entity.js';
 
 export enum ProductStatus {
   DRAFT = 'draft',
@@ -65,6 +66,18 @@ export class Product {
   @Column({ name: 'brand_id', type: 'int', nullable: true })
   brandId!: number | null;
 
+  @Column({ name: 'seller_id', type: 'int', nullable: true })
+  sellerId!: number | null;
+
+  @Column({ name: 'sold_count', type: 'int', default: 0 })
+  soldCount!: number;
+
+  @Column({ name: 'rating_avg', type: 'float', default: 0 })
+  ratingAvg!: number;
+
+  @Column({ name: 'review_count', type: 'int', default: 0 })
+  reviewCount!: number;
+
   @Column({
     type: 'enum',
     enum: ProductStatus,
@@ -100,4 +113,8 @@ export class Product {
 
   @OneToMany(() => ProductImage, (img) => img.product, { cascade: true })
   images!: ProductImage[];
+
+  @ManyToOne('User', 'sellerProducts', { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'seller_id' })
+  seller!: User | null;
 }

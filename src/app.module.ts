@@ -30,6 +30,7 @@ import { ReviewModule } from './modules/review/review.module.js';
 import { NotificationModule } from './modules/notification/notification.module.js';
 import { DashboardModule } from './modules/dashboard/dashboard.module.js';
 import { InventoryModule } from './modules/inventory/inventory.module.js';
+import { WishlistModule } from './modules/wishlist/wishlist.module.js';
 import { AdminSeed } from './database/seeds/admin.seed.js';
 
 @Module({
@@ -113,6 +114,7 @@ import { AdminSeed } from './database/seeds/admin.seed.js';
     NotificationModule,
     DashboardModule,
     InventoryModule,
+    WishlistModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: JwtAuthGuard },

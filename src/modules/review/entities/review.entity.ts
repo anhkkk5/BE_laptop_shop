@@ -2,9 +2,13 @@ import {
   Column,
   CreateDateColumn,
   Entity,
+  JoinColumn,
+  ManyToOne,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
+import type { Product } from '../../product/entities/product.entity.js';
+import type { User } from '../../user/entities/user.entity.js';
 
 @Entity('reviews')
 export class Review {
@@ -37,4 +41,12 @@ export class Review {
 
   @UpdateDateColumn({ name: 'updated_at' })
   updatedAt!: Date;
+
+  @ManyToOne('Product', { onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'product_id' })
+  product!: Product;
+
+  @ManyToOne('User', 'reviews', { onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'user_id' })
+  user!: User;
 }

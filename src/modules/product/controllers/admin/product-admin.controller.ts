@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   Controller,
+  ForbiddenException,
   Get,
   Post,
   Put,
@@ -11,14 +12,15 @@ import {
   ParseIntPipe,
 } from '@nestjs/common';
 import { Roles } from '../../../../common/decorators/roles.decorator.js';
-import { UserRole } from '../../../user/enums/user-role.enum.js';
+import { CurrentUser } from '../../../../common/decorators/index.js';
+import { UserRole } from '../../../../common/constants/index.js';
 import { ProductService } from '../../services/product.service.js';
 import { CreateProductDto } from '../../dtos/create-product.dto.js';
 import { UpdateProductDto } from '../../dtos/update-product.dto.js';
 import { QueryProductDto } from '../../dtos/query-product.dto.js';
 
 @Controller('admin/products')
-@Roles(UserRole.ADMIN, UserRole.WAREHOUSE)
+@Roles(UserRole.ADMIN, UserRole.WAREHOUSE, UserRole.SELLER)
 export class ProductAdminController {
   constructor(private readonly productService: ProductService) {}
 
@@ -49,24 +51,46 @@ export class ProductAdminController {
   }
 
   @Post()
-  @Roles(UserRole.ADMIN)
-  async create(@Body() dto: CreateProductDto) {
+  @Roles(UserRole.ADMIN, UserRole.SELLER)
+  async create(
+    @CurrentUser() user: { id: number; role: string },
+    @Body() dto: CreateProductDto,
+  ) {
+    if (user.role === UserRole.SELLER) {
+      dto.sellerId = user.id;
+    }
     return this.productService.create(dto);
   }
 
   @Put(':id')
-  @Roles(UserRole.ADMIN)
+  @Roles(UserRole.ADMIN, UserRole.SELLER)
   async update(
+    @CurrentUser() user: { id: number; role: string },
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateProductDto,
   ) {
+    if (user.role === UserRole.SELLER) {
+      const product = await this.productService.findById(id);
+      if (product.sellerId !== user.id) {
+        throw new ForbiddenException('Bạn chỉ được sửa sản phẩm của mình');
+      }
+    }
     await this.productService.update(id, dto);
     return { message: 'Product updated successfully' };
   }
 
   @Delete(':id')
-  @Roles(UserRole.ADMIN)
-  async delete(@Param('id', ParseIntPipe) id: number) {
+  @Roles(UserRole.ADMIN, UserRole.SELLER)
+  async delete(
+    @CurrentUser() user: { id: number; role: string },
+    @Param('id', ParseIntPipe) id: number,
+  ) {
+    if (user.role === UserRole.SELLER) {
+      const product = await this.productService.findById(id);
+      if (product.sellerId !== user.id) {
+        throw new ForbiddenException('Bạn chỉ được xóa sản phẩm của mình');
+      }
+    }
     await this.productService.delete(id);
     return { message: 'Product deleted successfully' };
   }

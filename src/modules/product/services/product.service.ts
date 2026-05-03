@@ -105,6 +105,14 @@ export class ProductService {
     await this.productRepository.increaseStock(id, quantity);
   }
 
+  async updateRatingStats(productId: number): Promise<void> {
+    await this.productRepository.updateRatingStats(productId);
+  }
+
+  async incrementSoldCount(id: number, quantity: number): Promise<void> {
+    await this.productRepository.incrementSoldCount(id, quantity);
+  }
+
   async getInventorySummary(lowStockThreshold?: number) {
     const threshold =
       typeof lowStockThreshold === 'number' &&
