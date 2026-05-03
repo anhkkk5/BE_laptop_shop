@@ -32,8 +32,14 @@ export class PaymentGatewayService {
   generateVietQR(amount: number, description: string): VietQrData {
     const bankId = this.configService.get<string>('VIETQR_BANK_ID', '970422');
     const accountNo = this.configService.get<string>('VIETQR_ACCOUNT_NO', '');
-    const accountName = this.configService.get<string>('VIETQR_ACCOUNT_NAME', '');
-    const template = this.configService.get<string>('VIETQR_TEMPLATE', 'compact2');
+    const accountName = this.configService.get<string>(
+      'VIETQR_ACCOUNT_NAME',
+      '',
+    );
+    const template = this.configService.get<string>(
+      'VIETQR_TEMPLATE',
+      'compact2',
+    );
 
     const encodedDesc = encodeURIComponent(description);
     const encodedName = encodeURIComponent(accountName);
@@ -139,9 +145,7 @@ export class PaymentGatewayService {
       'transId',
     ];
 
-    const raw = signatureKeys
-      .map((k) => `${k}=${data[k] ?? ''}`)
-      .join('&');
+    const raw = signatureKeys.map((k) => `${k}=${data[k] ?? ''}`).join('&');
 
     const expected = crypto
       .createHmac('sha256', secretKey)

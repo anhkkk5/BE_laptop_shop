@@ -53,7 +53,7 @@ export class ProductAdminController {
   @Post()
   @Roles(UserRole.ADMIN, UserRole.SELLER)
   async create(
-    @CurrentUser() user: { id: number; role: string },
+    @CurrentUser() user: { id: number; role: UserRole },
     @Body() dto: CreateProductDto,
   ) {
     if (user.role === UserRole.SELLER) {
@@ -65,7 +65,7 @@ export class ProductAdminController {
   @Put(':id')
   @Roles(UserRole.ADMIN, UserRole.SELLER)
   async update(
-    @CurrentUser() user: { id: number; role: string },
+    @CurrentUser() user: { id: number; role: UserRole },
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateProductDto,
   ) {
@@ -82,7 +82,7 @@ export class ProductAdminController {
   @Delete(':id')
   @Roles(UserRole.ADMIN, UserRole.SELLER)
   async delete(
-    @CurrentUser() user: { id: number; role: string },
+    @CurrentUser() user: { id: number; role: UserRole },
     @Param('id', ParseIntPipe) id: number,
   ) {
     if (user.role === UserRole.SELLER) {

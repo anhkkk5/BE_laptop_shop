@@ -24,13 +24,19 @@ export class WebhookController {
     @Body() body: Record<string, string | number>,
     @Headers('x-momo-signature') signature: string,
   ) {
-    const isValid = this.gatewayService.verifyMomoSignature(body, signature || '');
+    const isValid = this.gatewayService.verifyMomoSignature(
+      body,
+      signature || '',
+    );
     if (!isValid) {
       throw new UnauthorizedException('Invalid signature');
     }
 
     const idempotencyKey = `momo:${body.orderId || body.transId}`;
-    const isNew = await this.idempotencyService.checkAndStore(idempotencyKey, 600);
+    const isNew = await this.idempotencyService.checkAndStore(
+      idempotencyKey,
+      600,
+    );
     if (!isNew) {
       return;
     }

@@ -41,7 +41,10 @@ export class WishlistController {
     @CurrentUser('id') userId: number,
     @Param('productId', ParseIntPipe) productId: number,
   ) {
-    const inWishlist = await this.wishlistService.isInWishlist(userId, productId);
+    const inWishlist = await this.wishlistService.isInWishlist(
+      userId,
+      productId,
+    );
     return { inWishlist };
   }
 
