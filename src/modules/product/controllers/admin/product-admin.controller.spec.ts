@@ -20,16 +20,20 @@ function getControllerMethod(
 }
 
 describe('ProductAdminController roles', () => {
-  it('should allow ADMIN and WAREHOUSE at controller level', () => {
+  it('should allow ADMIN, WAREHOUSE and SELLER at controller level', () => {
     const roles = Reflect.getMetadata(
       ROLES_KEY,
       ProductAdminController,
     ) as UserRole[];
 
-    expect(roles).toEqual([UserRole.ADMIN, UserRole.WAREHOUSE]);
+    expect(roles).toEqual([
+      UserRole.ADMIN,
+      UserRole.WAREHOUSE,
+      UserRole.SELLER,
+    ]);
   });
 
-  it('should keep mutating endpoints ADMIN-only', () => {
+  it('should allow ADMIN and SELLER on mutating endpoints', () => {
     const createMethod = getControllerMethod('create');
     const updateMethod = getControllerMethod('update');
     const deleteMethod = getControllerMethod('delete');
@@ -47,8 +51,8 @@ describe('ProductAdminController roles', () => {
       deleteMethod,
     ) as UserRole[];
 
-    expect(createRoles).toEqual([UserRole.ADMIN]);
-    expect(updateRoles).toEqual([UserRole.ADMIN]);
-    expect(deleteRoles).toEqual([UserRole.ADMIN]);
+    expect(createRoles).toEqual([UserRole.ADMIN, UserRole.SELLER]);
+    expect(updateRoles).toEqual([UserRole.ADMIN, UserRole.SELLER]);
+    expect(deleteRoles).toEqual([UserRole.ADMIN, UserRole.SELLER]);
   });
 });

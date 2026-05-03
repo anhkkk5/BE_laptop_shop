@@ -10,6 +10,7 @@ import {
   AdminUpdateUserDto,
 } from '../dtos/update-user.dto.js';
 import { User } from '../entities/user.entity.js';
+import { UserRole } from '../enums/user-role.enum.js';
 
 @Injectable()
 export class UserService {
@@ -45,8 +46,8 @@ export class UserService {
     await this.userRepository.update(id, dto);
   }
 
-  async findAll(page: number, limit: number) {
-    return this.userRepository.findAll(page, limit);
+  async findAll(page: number, limit: number, role?: UserRole) {
+    return this.userRepository.findAll(page, limit, role);
   }
 
   async updateRefreshToken(

@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User } from '../entities/user.entity.js';
+import { UserRole } from '../enums/user-role.enum.js';
 
 @Injectable()
 export class UserRepository {
@@ -31,23 +32,29 @@ export class UserRepository {
     await this.repo.update(id, data);
   }
 
-  async findAll(page: number, limit: number) {
-    const [data, total] = await this.repo.findAndCount({
-      skip: (page - 1) * limit,
-      take: limit,
-      order: { createdAt: 'DESC' },
-      select: [
-        'id',
-        'email',
-        'fullName',
-        'phone',
-        'avatar',
-        'role',
-        'isVerified',
-        'lastLoginAt',
-        'createdAt',
-      ],
-    });
+  async findAll(page: number, limit: number, role?: UserRole) {
+    const query = this.repo
+      .createQueryBuilder('user')
+      .select([
+        'user.id',
+        'user.email',
+        'user.fullName',
+        'user.phone',
+        'user.avatar',
+        'user.role',
+        'user.isVerified',
+        'user.lastLoginAt',
+        'user.createdAt',
+      ])
+      .orderBy('user.createdAt', 'DESC')
+      .skip((page - 1) * limit)
+      .take(limit);
+
+    if (role) {
+      query.where('user.role = :role', { role });
+    }
+
+    const [data, total] = await query.getManyAndCount();
 
     return {
       data,

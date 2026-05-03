@@ -10,7 +10,7 @@ import {
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { UserService } from '../../services/user.service.js';
 import { AdminUpdateUserDto } from '../../dtos/update-user.dto.js';
-import { PaginationDto } from '../../../../common/dto/pagination.dto.js';
+import { AdminUserQueryDto } from '../../dtos/admin-user-query.dto.js';
 import { Roles } from '../../../../common/decorators/index.js';
 import { UserRole } from '../../enums/user-role.enum.js';
 
@@ -22,8 +22,8 @@ export class UserAdminController {
   constructor(private readonly userService: UserService) {}
 
   @Get()
-  async findAll(@Query() pagination: PaginationDto) {
-    return this.userService.findAll(pagination.page, pagination.limit);
+  async findAll(@Query() query: AdminUserQueryDto) {
+    return this.userService.findAll(query.page, query.limit, query.role);
   }
 
   @Get(':id')

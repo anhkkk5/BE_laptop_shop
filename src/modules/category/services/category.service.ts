@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Injectable,
   NotFoundException,
   ConflictException,
@@ -11,6 +12,26 @@ import { Category } from '../entities/category.entity.js';
 @Injectable()
 export class CategoryService {
   constructor(private readonly categoryRepository: CategoryRepository) {}
+
+  private slugify(value: string): string {
+    return value
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/đ/g, 'd')
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/(^-|-$)/g, '');
+  }
+
+  private async buildUniqueSlug(baseSlug: string): Promise<string> {
+    let slug = baseSlug;
+    let index = 1;
+    while (await this.categoryRepository.existsBySlug(slug)) {
+      index += 1;
+      slug = `${baseSlug}-${index}`;
+    }
+    return slug;
+  }
 
   async findAll(): Promise<Category[]> {
     return this.categoryRepository.findAll();
@@ -41,15 +62,21 @@ export class CategoryService {
   }
 
   async create(dto: CreateCategoryDto): Promise<Category> {
-    const exists = await this.categoryRepository.existsBySlug(dto.slug);
-    if (exists) throw new ConflictException('Category slug already exists');
+    const baseSlug = this.slugify((dto.slug || dto.name || '').trim());
+    if (!baseSlug) {
+      throw new BadRequestException('Category name is invalid for slug');
+    }
+    const slug = await this.buildUniqueSlug(baseSlug);
 
     if (dto.parentId) {
       const parent = await this.categoryRepository.findById(dto.parentId);
       if (!parent) throw new NotFoundException('Parent category not found');
     }
 
-    return this.categoryRepository.create(dto);
+    return this.categoryRepository.create({
+      ...dto,
+      slug,
+    });
   }
 
   async update(id: number, dto: UpdateCategoryDto): Promise<void> {
