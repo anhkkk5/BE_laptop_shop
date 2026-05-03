@@ -70,6 +70,48 @@ export class MailService {
     }
   }
 
+  async sendNewNotificationEmail(
+    email: string,
+    title: string,
+    message: string,
+    type: string,
+  ): Promise<void> {
+    const typeLabels: Record<string, string> = {
+      order: 'Đơn hàng',
+      promotion: 'Khuyến mãi',
+      system: 'Hệ thống',
+      review: 'Đánh giá',
+      warranty: 'Bảo hành',
+      payment: 'Thanh toán',
+      wishlist: 'Yêu thích',
+      staff: 'Nhân viên',
+      inventory: 'Kho hàng',
+      return: 'Đổi trả',
+    };
+    const typeLabel = typeLabels[type] || 'Thông báo';
+
+    try {
+      await this.transporter.sendMail({
+        from: `"${this.fromName}" <${this.fromEmail}>`,
+        to: email,
+        subject: `${typeLabel} - ${title}`,
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2 style="color: #2563eb;">${title}</h2>
+            <p>${message}</p>
+            <p style="color: #6b7280; font-size: 12px;">
+              Bạn nhận được thông báo này vì đã bật thông báo email.
+            </p>
+          </div>
+        `,
+      });
+      this.logger.log(`Notification email sent to ${email}`);
+    } catch (error) {
+      this.logger.error(`Failed to send notification email to ${email}`, error);
+      throw error;
+    }
+  }
+
   async sendPasswordResetEmail(email: string, token: string): Promise<void> {
     const resetUrl = `${this.frontendUrl}/reset-password?token=${token}`;
 
