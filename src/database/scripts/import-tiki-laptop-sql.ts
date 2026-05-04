@@ -24,14 +24,33 @@ type TikiItem = {
   review_count?: number;
   quantity_sold_value?: number;
   primary_category_path?: string;
+  thumbnail_url?: string;
+  images?: Array<{
+    url?: string;
+    base_url?: string;
+    large_url?: string;
+    medium_url?: string;
+    small_url?: string;
+    thumbnail_url?: string;
+  }>;
   visible_impression_info?: {
     amplitude?: TikiAmplitude;
   };
 };
 
 type BrandRow = { id: number; name: string; slug: string };
-type CategoryRow = { id: number; name: string; slug: string; parent_id: number | null };
-type ProductRow = { id: number; name: string; slug: string; sku: string | null };
+type CategoryRow = {
+  id: number;
+  name: string;
+  slug: string;
+  parent_id: number | null;
+};
+type ProductRow = {
+  id: number;
+  name: string;
+  slug: string;
+  sku: string | null;
+};
 
 const PRODUCT_STATUS = {
   ACTIVE: 'active',
@@ -77,14 +96,21 @@ function trimToMax(value: string, max: number): string {
   return value.length > max ? value.slice(0, max) : value;
 }
 
-function buildUniqueSlug(baseInput: string, maxLength: number, used: Set<string>): string {
+function buildUniqueSlug(
+  baseInput: string,
+  maxLength: number,
+  used: Set<string>,
+): string {
   const fallback = 'item';
   const base = (slugify(baseInput) || fallback).slice(0, maxLength);
   let candidate = base || fallback;
   let index = 1;
   while (used.has(candidate)) {
     const suffix = `-${index}`;
-    const stem = (base || fallback).slice(0, Math.max(1, maxLength - suffix.length));
+    const stem = (base || fallback).slice(
+      0,
+      Math.max(1, maxLength - suffix.length),
+    );
     candidate = `${stem}${suffix}`;
     index += 1;
   }
@@ -109,12 +135,49 @@ function normalizeCategoryChain(item: TikiItem): string[] {
   return chain.length > 0 ? chain : ['Laptop & Phu kien'];
 }
 
+function isHttpUrl(value: string): boolean {
+  return /^https?:\/\//i.test(value);
+}
+
+function collectImageUrls(item: TikiItem): string[] {
+  const urls = new Set<string>();
+
+  const thumbnail = toStringValue(item.thumbnail_url);
+  if (thumbnail && isHttpUrl(thumbnail)) {
+    urls.add(thumbnail);
+  }
+
+  if (Array.isArray(item.images)) {
+    for (const image of item.images) {
+      const candidates = [
+        toStringValue(image?.url),
+        toStringValue(image?.base_url),
+        toStringValue(image?.large_url),
+        toStringValue(image?.medium_url),
+        toStringValue(image?.small_url),
+        toStringValue(image?.thumbnail_url),
+      ];
+
+      for (const candidate of candidates) {
+        if (candidate && isHttpUrl(candidate)) {
+          urls.add(candidate);
+        }
+      }
+    }
+  }
+
+  return Array.from(urls).slice(0, 12);
+}
+
 async function backupBeforeImport(): Promise<string> {
   const backupDir = resolve(process.cwd(), 'backups');
   await mkdir(backupDir, { recursive: true });
 
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-  const backupPath = resolve(backupDir, `db-backup-before-tiki-import-${timestamp}.json`);
+  const backupPath = resolve(
+    backupDir,
+    `db-backup-before-tiki-import-${timestamp}.json`,
+  );
 
   const tables = ['brands', 'categories', 'products', 'product_images'];
   const snapshot: Record<string, unknown[]> = {};
@@ -258,6 +321,29 @@ async function updateProduct(
   );
 }
 
+async function replaceProductImages(
+  productId: number,
+  imageUrls: string[],
+  altBase: string,
+): Promise<void> {
+  await dataSource.query('DELETE FROM product_images WHERE product_id = ?', [
+    productId,
+  ]);
+
+  if (imageUrls.length === 0) {
+    return;
+  }
+
+  for (let index = 0; index < imageUrls.length; index += 1) {
+    const imageUrl = trimToMax(imageUrls[index], 500);
+    const alt = trimToMax(`${altBase} - ${index + 1}`, 255);
+    await dataSource.query(
+      'INSERT INTO product_images (product_id, url, alt, is_primary, sort_order) VALUES (?, ?, ?, ?, ?)',
+      [productId, imageUrl, alt, index === 0 ? 1 : 0, index],
+    );
+  }
+}
+
 async function runImport() {
   const jsonPath = resolve(process.cwd(), 'laptop.json');
   const raw = await readFile(jsonPath, 'utf8');
@@ -275,18 +361,29 @@ async function runImport() {
   });
 
   const [brands, categories, products] = await Promise.all([
-    dataSource.query('SELECT id, name, slug FROM brands') as Promise<BrandRow[]>,
-    dataSource.query('SELECT id, name, slug, parent_id FROM categories') as Promise<CategoryRow[]>,
-    dataSource.query('SELECT id, name, slug, sku FROM products') as Promise<ProductRow[]>,
+    dataSource.query('SELECT id, name, slug FROM brands') as Promise<
+      BrandRow[]
+    >,
+    dataSource.query(
+      'SELECT id, name, slug, parent_id FROM categories',
+    ) as Promise<CategoryRow[]>,
+    dataSource.query('SELECT id, name, slug, sku FROM products') as Promise<
+      ProductRow[]
+    >,
   ]);
 
   const usedBrandSlugs = new Set(brands.map((item) => item.slug));
   const usedCategorySlugs = new Set(categories.map((item) => item.slug));
   const usedProductSlugs = new Set(products.map((item) => item.slug));
 
-  const brandNameToId = new Map(brands.map((item) => [item.name.trim().toLowerCase(), item.id]));
+  const brandNameToId = new Map(
+    brands.map((item) => [item.name.trim().toLowerCase(), item.id]),
+  );
   const categoryKeyToId = new Map(
-    categories.map((item) => [`${item.parent_id ?? 0}:${item.name.trim().toLowerCase()}`, item.id]),
+    categories.map((item) => [
+      `${item.parent_id ?? 0}:${item.name.trim().toLowerCase()}`,
+      item.id,
+    ]),
   );
   const productBySlug = new Map(products.map((item) => [item.slug, item]));
 
@@ -316,7 +413,11 @@ async function runImport() {
       const key = `${parentId ?? 0}:${categoryName.toLowerCase()}`;
       let categoryId = categoryKeyToId.get(key);
       if (!categoryId) {
-        const categorySlug = buildUniqueSlug(categoryName, 120, usedCategorySlugs);
+        const categorySlug = buildUniqueSlug(
+          categoryName,
+          120,
+          usedCategorySlugs,
+        );
         categoryId = await insertCategory(categoryName, categorySlug, parentId);
         categoryKeyToId.set(key, categoryId);
         createdCategories += 1;
@@ -330,7 +431,8 @@ async function runImport() {
     const marketPrice = toNumberValue(item.price) || 0;
     const originalPrice = toNumberValue(item.original_price) || 0;
     const basePrice = originalPrice > 0 ? originalPrice : marketPrice;
-    const salePrice = basePrice > marketPrice && marketPrice > 0 ? marketPrice : null;
+    const salePrice =
+      basePrice > marketPrice && marketPrice > 0 ? marketPrice : null;
 
     if (basePrice <= 0) {
       skippedProducts += 1;
@@ -348,21 +450,36 @@ async function runImport() {
 
     const incomingSlugBase = normalizeProductSlug(item);
     const normalizedSlug = trimToMax(slugify(incomingSlugBase), 280);
-    const existing = normalizedSlug ? productBySlug.get(normalizedSlug) : undefined;
+    const existing = normalizedSlug
+      ? productBySlug.get(normalizedSlug)
+      : undefined;
+    const imageUrls = collectImageUrls(item);
 
     const payload = {
       name,
-      shortDescription: trimToMax(toStringValue(item.short_description), 500) || null,
+      shortDescription:
+        trimToMax(toStringValue(item.short_description), 500) || null,
       price: basePrice,
       salePrice,
       sku,
       stockQuantity,
       categoryId: parentId,
       brandId,
-      status: availability ? PRODUCT_STATUS.ACTIVE : PRODUCT_STATUS.OUT_OF_STOCK,
-      reviewCount: Math.max(0, Math.floor(toNumberValue(item.review_count) || 0)),
-      ratingAvg: Math.max(0, Number((toNumberValue(item.rating_average) || 0).toFixed(2))),
-      soldCount: Math.max(0, Math.floor(toNumberValue(item.quantity_sold_value) || 0)),
+      status: availability
+        ? PRODUCT_STATUS.ACTIVE
+        : PRODUCT_STATUS.OUT_OF_STOCK,
+      reviewCount: Math.max(
+        0,
+        Math.floor(toNumberValue(item.review_count) || 0),
+      ),
+      ratingAvg: Math.max(
+        0,
+        Number((toNumberValue(item.rating_average) || 0).toFixed(2)),
+      ),
+      soldCount: Math.max(
+        0,
+        Math.floor(toNumberValue(item.quantity_sold_value) || 0),
+      ),
       specs: JSON.stringify(
         item.primary_category_path
           ? { source: 'tiki', primaryCategoryPath: item.primary_category_path }
@@ -372,13 +489,16 @@ async function runImport() {
 
     if (existing) {
       const sameSku = Boolean(sku && existing.sku && sku === existing.sku);
-      const sameName = existing.name.trim().toLowerCase() === name.trim().toLowerCase();
+      const sameName =
+        existing.name.trim().toLowerCase() === name.trim().toLowerCase();
       if (sameSku || sameName) {
         await updateProduct(existing.id, payload);
+        await replaceProductImages(existing.id, imageUrls, name);
         updatedProducts += 1;
       } else {
         const slug = buildUniqueSlug(name, 280, usedProductSlugs);
         const id = await insertProduct({ ...payload, slug });
+        await replaceProductImages(id, imageUrls, name);
         productBySlug.set(slug, { id, name, slug, sku });
         createdProducts += 1;
       }
@@ -387,6 +507,7 @@ async function runImport() {
 
     const slug = buildUniqueSlug(normalizedSlug || name, 280, usedProductSlugs);
     const id = await insertProduct({ ...payload, slug });
+    await replaceProductImages(id, imageUrls, name);
     productBySlug.set(slug, { id, name, slug, sku });
     createdProducts += 1;
   }

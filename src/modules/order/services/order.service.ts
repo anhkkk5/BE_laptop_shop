@@ -9,6 +9,7 @@ import { OrderRepository } from '../repositories/order.repository.js';
 import { CreateOrderDto } from '../dtos/create-order.dto.js';
 import { UpdateOrderStatusDto } from '../dtos/update-order-status.dto.js';
 import { Order, OrderStatus } from '../entities/order.entity.js';
+import { UserRole } from '../../user/enums/user-role.enum.js';
 import { CartService } from '../../cart/services/cart.service.js';
 import { StockReservationService } from '../../inventory/services/stock-reservation.service.js';
 
@@ -25,6 +26,62 @@ export class OrderService {
     const timestamp = Date.now().toString().slice(-8);
     const random = Math.floor(Math.random() * 900 + 100);
     return `ORD${timestamp}${random}`;
+  }
+
+  private isTransitionAllowedByRole(
+    currentStatus: OrderStatus,
+    nextStatus: OrderStatus,
+    role: UserRole,
+  ): boolean {
+    if (currentStatus === nextStatus) {
+      return true;
+    }
+
+    const adminTransitions: Partial<Record<OrderStatus, OrderStatus[]>> = {
+      [OrderStatus.PENDING]: [OrderStatus.CONFIRMED, OrderStatus.CANCELLED],
+      [OrderStatus.CONFIRMED]: [
+        OrderStatus.PROCESSING,
+        OrderStatus.CANCELLED,
+        OrderStatus.REFUNDED,
+      ],
+      [OrderStatus.PROCESSING]: [
+        OrderStatus.READY_TO_SHIP,
+        OrderStatus.CANCELLED,
+      ],
+      [OrderStatus.READY_TO_SHIP]: [
+        OrderStatus.SHIPPING,
+        OrderStatus.CANCELLED,
+      ],
+      [OrderStatus.SHIPPING]: [OrderStatus.DELIVERED, OrderStatus.CANCELLED],
+      [OrderStatus.DELIVERED]: [OrderStatus.COMPLETED, OrderStatus.REFUNDED],
+      [OrderStatus.COMPLETED]: [OrderStatus.REFUNDED],
+    };
+
+    const staffTransitions: Partial<Record<OrderStatus, OrderStatus[]>> = {
+      [OrderStatus.PENDING]: [OrderStatus.CONFIRMED, OrderStatus.CANCELLED],
+      [OrderStatus.SHIPPING]: [OrderStatus.DELIVERED],
+      [OrderStatus.DELIVERED]: [OrderStatus.COMPLETED],
+    };
+
+    const warehouseTransitions: Partial<Record<OrderStatus, OrderStatus[]>> = {
+      [OrderStatus.CONFIRMED]: [OrderStatus.PROCESSING],
+      [OrderStatus.PROCESSING]: [OrderStatus.READY_TO_SHIP],
+      [OrderStatus.READY_TO_SHIP]: [OrderStatus.SHIPPING],
+    };
+
+    if (role === UserRole.ADMIN) {
+      return adminTransitions[currentStatus]?.includes(nextStatus) ?? false;
+    }
+
+    if (role === UserRole.STAFF) {
+      return staffTransitions[currentStatus]?.includes(nextStatus) ?? false;
+    }
+
+    if (role === UserRole.WAREHOUSE) {
+      return warehouseTransitions[currentStatus]?.includes(nextStatus) ?? false;
+    }
+
+    return false;
   }
 
   async createFromCart(userId: number, dto: CreateOrderDto): Promise<Order> {
@@ -117,8 +174,20 @@ export class OrderService {
   async updateStatus(
     orderId: number,
     dto: UpdateOrderStatusDto,
+    actorRole: UserRole = UserRole.ADMIN,
   ): Promise<void> {
     const order = await this.findById(orderId);
+
+    if (!this.isTransitionAllowedByRole(order.status, dto.status, actorRole)) {
+      throw new BadRequestException(
+        `Role ${actorRole} cannot change order from ${order.status} to ${dto.status}`,
+      );
+    }
+
+    if (dto.status === OrderStatus.CANCELLED) {
+      await this.reservationService.release(order.id);
+    }
+
     order.status = dto.status;
     await this.orderRepository.save(order);
 

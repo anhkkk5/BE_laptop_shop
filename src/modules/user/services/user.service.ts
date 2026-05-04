@@ -43,7 +43,13 @@ export class UserService {
 
   async adminUpdate(id: number, dto: AdminUpdateUserDto): Promise<void> {
     await this.findById(id);
-    await this.userRepository.update(id, dto);
+    const normalizedRole =
+      dto.role === UserRole.SELLER ? UserRole.STAFF : dto.role;
+
+    await this.userRepository.update(id, {
+      ...dto,
+      role: normalizedRole,
+    });
   }
 
   async findAll(page: number, limit: number, role?: UserRole) {

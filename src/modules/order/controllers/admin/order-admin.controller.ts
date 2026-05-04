@@ -8,13 +8,14 @@ import {
   Query,
 } from '@nestjs/common';
 import { Roles } from '../../../../common/decorators/roles.decorator.js';
+import { CurrentUser } from '../../../../common/decorators/current-user.decorator.js';
 import { PaginationDto } from '../../../../common/dto/pagination.dto.js';
 import { UserRole } from '../../../user/enums/user-role.enum.js';
 import { OrderService } from '../../services/order.service.js';
 import { UpdateOrderStatusDto } from '../../dtos/update-order-status.dto.js';
 
 @Controller('admin/orders')
-@Roles(UserRole.ADMIN, UserRole.STAFF)
+@Roles(UserRole.ADMIN, UserRole.STAFF, UserRole.WAREHOUSE)
 export class OrderAdminController {
   constructor(private readonly orderService: OrderService) {}
 
@@ -30,10 +31,11 @@ export class OrderAdminController {
 
   @Patch(':id/status')
   async updateStatus(
+    @CurrentUser('role') role: UserRole,
     @Param('id', ParseIntPipe) orderId: number,
     @Body() dto: UpdateOrderStatusDto,
   ) {
-    await this.orderService.updateStatus(orderId, dto);
+    await this.orderService.updateStatus(orderId, dto, role);
     return { message: 'Order status updated successfully' };
   }
 }

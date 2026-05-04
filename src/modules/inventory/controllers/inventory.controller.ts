@@ -21,7 +21,7 @@ import { CurrentUser } from '../../../common/decorators/current-user.decorator.j
 
 @Controller('inventory')
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles(UserRole.ADMIN, UserRole.STAFF)
+@Roles(UserRole.ADMIN, UserRole.WAREHOUSE)
 export class InventoryController {
   constructor(private readonly inventoryService: InventoryService) {}
 

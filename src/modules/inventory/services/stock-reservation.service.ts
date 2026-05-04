@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
-import { DataSource, LessThan } from 'typeorm';
+import { DataSource, LessThan, Repository } from 'typeorm';
 import { InventoryRepository } from '../repositories/inventory.repository.js';
 import { StockReservationRepository } from '../repositories/stock-reservation.repository.js';
 import { StockMovementRepository } from '../repositories/stock-movement.repository.js';
@@ -22,6 +22,17 @@ export class StockReservationService {
     private readonly dataSource: DataSource,
   ) {}
 
+  private async findInventoryForUpdate(
+    invRepo: Repository<Inventory>,
+    productId: number,
+  ): Promise<Inventory | null> {
+    return invRepo
+      .createQueryBuilder('inventory')
+      .setLock('pessimistic_write')
+      .where('inventory.product_id = :productId', { productId })
+      .getOne();
+  }
+
   async reserve(
     orderId: number,
     items: Array<{ productId: number; quantity: number }>,
@@ -35,9 +46,7 @@ export class StockReservationService {
       const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
 
       for (const item of items) {
-        const inv = await invRepo.findOne({
-          where: { productId: item.productId },
-        });
+        const inv = await this.findInventoryForUpdate(invRepo, item.productId);
         if (!inv) {
           throw new BadRequestException(
             `Inventory not found for product ${item.productId}`,
@@ -91,9 +100,7 @@ export class StockReservationService {
       if (!reservations.length) return;
 
       for (const res of reservations) {
-        const inv = await invRepo.findOne({
-          where: { productId: res.productId },
-        });
+        const inv = await this.findInventoryForUpdate(invRepo, res.productId);
         if (inv) {
           const before = inv.availableQty;
           inv.availableQty += res.quantity;
@@ -129,9 +136,7 @@ export class StockReservationService {
       if (!reservations.length) return;
 
       for (const res of reservations) {
-        const inv = await invRepo.findOne({
-          where: { productId: res.productId },
-        });
+        const inv = await this.findInventoryForUpdate(invRepo, res.productId);
         if (inv) {
           const before = inv.reservedQty;
           inv.reservedQty -= res.quantity;
@@ -168,9 +173,7 @@ export class StockReservationService {
       });
 
       for (const res of expired) {
-        const inv = await invRepo.findOne({
-          where: { productId: res.productId },
-        });
+        const inv = await this.findInventoryForUpdate(invRepo, res.productId);
         if (inv) {
           const before = inv.availableQty;
           inv.availableQty += res.quantity;

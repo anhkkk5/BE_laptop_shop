@@ -3,12 +3,19 @@ import { ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
+import { randomUUID } from 'node:crypto';
+import express from 'express';
+import { resolve } from 'node:path';
 import { AppModule } from './app.module.js';
 import { GlobalExceptionFilter } from './common/filters/http-exception.filter.js';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor.js';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor.js';
+import { initSentryIfConfigured } from './common/observability/sentry.util.js';
+import type { Request, Response, NextFunction } from 'express';
 
 async function bootstrap() {
+  initSentryIfConfigured();
+
   const app = await NestFactory.create(AppModule);
 
   const port = parseInt(process.env.PORT || '3001', 10);
@@ -19,6 +26,18 @@ async function bootstrap() {
 
   app.use(helmet());
   app.use(cookieParser());
+  app.use((req: Request, res: Response, next: NextFunction) => {
+    const requestIdHeader = req.headers['x-request-id'];
+    const requestId =
+      typeof requestIdHeader === 'string' && requestIdHeader.trim()
+        ? requestIdHeader
+        : randomUUID();
+
+    (req as Request & { requestId?: string }).requestId = requestId;
+    res.setHeader('x-request-id', requestId);
+    next();
+  });
+  app.use('/uploads', express.static(resolve(process.cwd(), 'uploads')));
 
   app.enableCors({
     origin: [

@@ -31,6 +31,7 @@ import { NotificationModule } from './modules/notification/notification.module.j
 import { DashboardModule } from './modules/dashboard/dashboard.module.js';
 import { InventoryModule } from './modules/inventory/inventory.module.js';
 import { WishlistModule } from './modules/wishlist/wishlist.module.js';
+import { HealthModule } from './modules/health/health.module.js';
 import { AdminSeed } from './database/seeds/admin.seed.js';
 
 @Module({
@@ -115,6 +116,7 @@ import { AdminSeed } from './database/seeds/admin.seed.js';
     DashboardModule,
     InventoryModule,
     WishlistModule,
+    HealthModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: JwtAuthGuard },
