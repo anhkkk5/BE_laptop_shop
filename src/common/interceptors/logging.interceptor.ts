@@ -30,7 +30,12 @@ export class LoggingInterceptor implements NestInterceptor {
           this.logger.log(
             JSON.stringify({
               requestId,
+              event: 'http.request.completed',
+              service: 'be-laptop-shop',
+              component: 'http',
               level: 'info',
+              severity: 'low',
+              outcome: 'success',
               method,
               path: originalUrl,
               statusCode: response.statusCode,
@@ -48,7 +53,12 @@ export class LoggingInterceptor implements NestInterceptor {
           this.logger.error(
             JSON.stringify({
               requestId,
+              event: 'http.request.failed',
+              service: 'be-laptop-shop',
+              component: 'http',
               level: 'error',
+              severity: 'high',
+              outcome: 'failure',
               method,
               path: originalUrl,
               statusCode: response.statusCode,

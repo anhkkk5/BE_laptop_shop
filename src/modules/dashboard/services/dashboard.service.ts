@@ -1,4 +1,6 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
+import { InjectRedis } from '@nestjs-modules/ioredis';
+import { Redis } from 'ioredis';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Order, OrderStatus } from '../../order/entities/order.entity.js';
@@ -18,6 +20,10 @@ type DateRange = { fromDate?: string; toDate?: string };
 
 @Injectable()
 export class DashboardService {
+  private readonly logger = new Logger(DashboardService.name);
+  private readonly overviewCacheTtlSeconds = 30;
+  private readonly overviewCachePrefix = 'dashboard:overview';
+
   constructor(
     @InjectRepository(Order)
     private readonly orderRepo: Repository<Order>,
@@ -29,9 +35,16 @@ export class DashboardService {
     private readonly productRepo: Repository<Product>,
     @InjectRepository(WarrantyTicket)
     private readonly warrantyRepo: Repository<WarrantyTicket>,
+    @InjectRedis() private readonly redis: Redis,
   ) {}
 
   async getOverview(query: DashboardQueryDto) {
+    const cacheKey = this.buildOverviewCacheKey(query);
+    const cachedOverview = await this.getCachedOverview(cacheKey);
+    if (cachedOverview) {
+      return cachedOverview;
+    }
+
     const { fromDate, toDate } = query;
     const dateFilter = this.buildDateFilter(fromDate, toDate);
 
@@ -57,7 +70,7 @@ export class DashboardService {
       this.getRecentOrders(10),
     ]);
 
-    return {
+    const overview = {
       totalRevenue,
       orderCount,
       productCount,
@@ -68,6 +81,45 @@ export class DashboardService {
       warrantyByStatus,
       recentOrders,
     };
+
+    await this.setCachedOverview(cacheKey, overview);
+    return overview;
+  }
+
+  private buildOverviewCacheKey(query: DashboardQueryDto): string {
+    const normalized = {
+      fromDate: query.fromDate ?? null,
+      toDate: query.toDate ?? null,
+      topProductsLimit: query.topProductsLimit ?? 5,
+    };
+
+    return `${this.overviewCachePrefix}:${JSON.stringify(normalized)}`;
+  }
+
+  private async getCachedOverview(cacheKey: string) {
+    try {
+      const cached = await this.redis.get(cacheKey);
+      return cached ? (JSON.parse(cached) as Record<string, unknown>) : null;
+    } catch (error) {
+      this.logger.warn('Dashboard overview cache read failed', error as Error);
+      return null;
+    }
+  }
+
+  private async setCachedOverview(
+    cacheKey: string,
+    overview: Record<string, unknown>,
+  ) {
+    try {
+      await this.redis.set(
+        cacheKey,
+        JSON.stringify(overview),
+        'EX',
+        this.overviewCacheTtlSeconds,
+      );
+    } catch (error) {
+      this.logger.warn('Dashboard overview cache write failed', error as Error);
+    }
   }
 
   private buildDateFilter(fromDate?: string, toDate?: string): DateRange {

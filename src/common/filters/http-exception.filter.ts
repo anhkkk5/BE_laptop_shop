@@ -46,7 +46,13 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     const requestId = request.requestId || 'n/a';
     const metadata = {
       requestId,
+      event: 'http.exception',
+      service: 'be-laptop-shop',
+      component: 'exception-filter',
       level: 'error',
+      severity:
+        status >= HttpStatus.INTERNAL_SERVER_ERROR ? 'critical' : 'medium',
+      outcome: 'failure',
       status,
       method: request.method,
       path: request.url,
@@ -55,6 +61,10 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       body: redactValue(request.body),
       message,
       error,
+      errorType:
+        exception instanceof Error
+          ? exception.constructor.name
+          : 'HttpException',
     };
 
     if (status >= HttpStatus.INTERNAL_SERVER_ERROR) {

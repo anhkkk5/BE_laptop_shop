@@ -8,9 +8,11 @@ import {
   Res,
   HttpCode,
   HttpStatus,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { ConfigService } from '@nestjs/config';
+import { Throttle } from '@nestjs/throttler';
 import type { Request, Response } from 'express';
 import { AuthService } from '../../services/auth.service.js';
 import { RegisterDto } from '../../dtos/register.dto.js';
@@ -36,6 +38,7 @@ export class AuthController {
   ) {}
 
   @Public()
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
   @Post('register')
   async register(
     @Body() dto: RegisterDto,
@@ -54,6 +57,7 @@ export class AuthController {
   @Public()
   @UseGuards(LocalAuthGuard)
   @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
   @Post('login')
   async login(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
     const user = req.user as { id: number; email: string; role: string };
@@ -79,6 +83,7 @@ export class AuthController {
   }
 
   @Public()
+  @Throttle({ default: { limit: 20, ttl: 60000 } })
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
   async refresh(
@@ -88,16 +93,22 @@ export class AuthController {
     const refreshToken = req.cookies?.refresh_token;
     if (!refreshToken) {
       clearAuthCookies(res);
-      throw new Error('Refresh token not found');
+      throw new UnauthorizedException('Refresh token not found');
     }
-    const tokens = await this.authService.refreshTokens(refreshToken);
-    setAuthCookies(
-      res,
-      tokens.accessToken,
-      tokens.refreshToken,
-      this.configService,
-    );
-    return { message: 'Token refreshed successfully' };
+
+    try {
+      const tokens = await this.authService.refreshTokens(refreshToken);
+      setAuthCookies(
+        res,
+        tokens.accessToken,
+        tokens.refreshToken,
+        this.configService,
+      );
+      return { message: 'Token refreshed successfully' };
+    } catch (error) {
+      clearAuthCookies(res);
+      throw error;
+    }
   }
 
   @Get('me')
@@ -106,6 +117,7 @@ export class AuthController {
   }
 
   @Public()
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
   @Post('verify-email')
   @HttpCode(HttpStatus.OK)
   async verifyEmail(@Body() dto: VerifyEmailDto) {
@@ -114,12 +126,14 @@ export class AuthController {
 
   @Post('resend-verification')
   @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
   async resendVerification(@CurrentUser('email') email: string) {
     await this.authService.sendVerificationEmail(email);
     return { message: 'Verification email sent' };
   }
 
   @Public()
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
   @Post('forgot-password')
   @HttpCode(HttpStatus.OK)
   async forgotPassword(@Body() dto: ForgotPasswordDto) {
@@ -127,6 +141,7 @@ export class AuthController {
   }
 
   @Public()
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
   @Post('reset-password')
   @HttpCode(HttpStatus.OK)
   async resetPassword(@Body() dto: ResetPasswordDto) {

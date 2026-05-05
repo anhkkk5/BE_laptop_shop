@@ -60,8 +60,8 @@ describe('NotificationService', () => {
   it('should retry dead letter jobs into main queue', async () => {
     const { service, redis } = createService();
     redis.lpop
-      .mockResolvedValueOnce('{"job":1}')
-      .mockResolvedValueOnce('{"job":2}')
+      .mockResolvedValueOnce('{"job":1,"attempts":9}')
+      .mockResolvedValueOnce('{"job":2,"attempts":5}')
       .mockResolvedValueOnce(null);
 
     const result = await service.retryDeadLetterJobs(5);
@@ -71,12 +71,25 @@ describe('NotificationService', () => {
     expect(redis.rpush).toHaveBeenNthCalledWith(
       1,
       'notifications:queue',
-      '{"job":1}',
+      '{"job":1,"attempts":0}',
     );
     expect(redis.rpush).toHaveBeenNthCalledWith(
       2,
       'notifications:queue',
-      '{"job":2}',
+      '{"job":2,"attempts":0}',
+    );
+  });
+
+  it('should keep raw payload when dead letter job is not valid json', async () => {
+    const { service, redis } = createService();
+    redis.lpop.mockResolvedValueOnce('bad-payload').mockResolvedValueOnce(null);
+
+    const result = await service.retryDeadLetterJobs(5);
+
+    expect(result).toEqual({ retried: 1 });
+    expect(redis.rpush).toHaveBeenCalledWith(
+      'notifications:queue',
+      'bad-payload',
     );
   });
 });

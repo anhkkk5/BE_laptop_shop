@@ -179,11 +179,20 @@ export class NotificationService implements OnModuleInit, OnModuleDestroy {
         break;
       }
 
-      await this.redis.rpush(this.queueKey, rawJob);
+      await this.redis.rpush(this.queueKey, this.resetJobAttempts(rawJob));
       retried += 1;
     }
 
     return { retried };
+  }
+
+  private resetJobAttempts(rawJob: string) {
+    try {
+      const payload = JSON.parse(rawJob) as NotificationJob;
+      return JSON.stringify({ ...payload, attempts: 0 });
+    } catch {
+      return rawJob;
+    }
   }
 
   private async flushRetryJobs() {
