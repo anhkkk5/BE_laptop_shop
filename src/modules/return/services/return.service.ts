@@ -109,7 +109,6 @@ export class ReturnService {
 
   async checkFraud(userId: number): Promise<boolean> {
     const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-    const recentReturns = await this.returnRepo.count({ where: { userId } });
     const recentCount = await this.returnRepo
       .createQueryBuilder('rr')
       .where('rr.user_id = :userId AND rr.created_at > :since', {
@@ -295,11 +294,6 @@ export class ReturnService {
       breakdown.deduction = -report.deductionAmount;
     }
 
-    const isMerchantError = [
-      ReturnReason.DEFECTIVE,
-      ReturnReason.WRONG_ITEM,
-      ReturnReason.NOT_AS_DESCRIBED,
-    ].includes(rr.returnReason);
     const isCustomerInitiated = [
       ReturnReason.NO_LONGER_NEEDED,
       ReturnReason.BETTER_PRICE,

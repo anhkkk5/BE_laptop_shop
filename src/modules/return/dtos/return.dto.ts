@@ -1,4 +1,13 @@
-import { IsString, IsOptional, IsIn, IsNumber, IsArray, Min, MaxLength, MinLength, ArrayMaxSize } from 'class-validator';
+import {
+  IsString,
+  IsOptional,
+  IsIn,
+  IsNumber,
+  IsArray,
+  Min,
+  MinLength,
+  ArrayMaxSize,
+} from 'class-validator';
 import { ReturnReason, RefundMethod } from '../enums/return.enum.js';
 
 export class SubmitReturnDto {
