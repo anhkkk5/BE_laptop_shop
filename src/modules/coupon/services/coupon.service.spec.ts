@@ -15,14 +15,26 @@ function createService() {
     create: jest.fn(),
   };
 
+  const collectionRepo = {
+    findOne: jest.fn(),
+    save: jest.fn(),
+    create: jest.fn(),
+  };
+
   const cartService = {
     getMyCart: jest.fn(),
+  };
+
+  const productService = {
+    findByIds: jest.fn(),
   };
 
   const service = new CouponService(
     couponRepo as never,
     usageRepo as never,
+    collectionRepo as never,
     cartService as never,
+    productService as never,
   );
 
   return {
