@@ -1,4 +1,3 @@
-import { EventEmitter2 } from '@nestjs/event-emitter';
 import { PaymentService } from './payment.service';
 import {
   PaymentMethod,
@@ -47,8 +46,13 @@ function createService() {
 
 describe('PaymentService', () => {
   it('should confirm reservation and emit completed event for COD payment create', async () => {
-    const { service, paymentRepository, orderService, reservationService, eventEmitter } =
-      createService();
+    const {
+      service,
+      paymentRepository,
+      orderService,
+      reservationService,
+      eventEmitter,
+    } = createService();
 
     orderService.findMyOrderById.mockResolvedValue({
       id: 11,
@@ -56,7 +60,7 @@ describe('PaymentService', () => {
       total: 200000,
     });
     paymentRepository.findByOrderId.mockResolvedValue(null);
-    paymentRepository.create.mockImplementation(async (data: Partial<Payment>) => ({
+    paymentRepository.create.mockImplementation((data: Partial<Payment>) => ({
       id: 1,
       orderId: Number(data.orderId),
       userId: Number(data.userId),
@@ -82,10 +86,18 @@ describe('PaymentService', () => {
   });
 
   it('should update order status on simulate success when order is pending', async () => {
-    const { service, paymentRepository, orderService, reservationService, eventEmitter } =
-      createService();
+    const {
+      service,
+      paymentRepository,
+      orderService,
+      reservationService,
+      eventEmitter,
+    } = createService();
 
-    orderService.findById.mockResolvedValue({ id: 11, status: OrderStatus.PENDING });
+    orderService.findById.mockResolvedValue({
+      id: 11,
+      status: OrderStatus.PENDING,
+    });
     paymentRepository.findByOrderId.mockResolvedValue({
       id: 1,
       orderId: 11,
@@ -96,7 +108,7 @@ describe('PaymentService', () => {
       method: PaymentMethod.VIETQR,
       amount: 200000,
     });
-    paymentRepository.save.mockImplementation(async (payment: Payment) => payment);
+    paymentRepository.save.mockImplementation((payment: Payment) => payment);
 
     await service.simulateSuccess(11);
 
@@ -125,7 +137,7 @@ describe('PaymentService', () => {
       method: PaymentMethod.VIETQR,
       amount: 200000,
     });
-    paymentRepository.save.mockImplementation(async (payment: Payment) => payment);
+    paymentRepository.save.mockImplementation((payment: Payment) => payment);
 
     await service.simulateFailed(11);
 

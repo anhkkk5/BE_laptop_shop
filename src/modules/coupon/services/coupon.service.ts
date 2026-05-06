@@ -5,7 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { LessThanOrEqual, MoreThanOrEqual, Repository } from 'typeorm';
+import { Repository } from 'typeorm';
 import { CartService } from '../../cart/services/cart.service.js';
 import { ProductService } from '../../product/services/product.service.js';
 import { CreateCouponDto } from '../dtos/create-coupon.dto.js';
@@ -22,11 +22,6 @@ interface CheckoutValidationInput {
   userId: number;
   subtotal: number;
   cartProductIds?: number[];
-}
-
-interface CouponError {
-  errorCode: CouponErrorCode;
-  message: string;
 }
 
 function couponError(errorCode: CouponErrorCode, message: string): never {

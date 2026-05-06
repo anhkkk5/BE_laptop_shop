@@ -7,7 +7,7 @@ import {
 } from '../entities/stock-reservation.entity';
 import { StockMovement } from '../entities/stock-movement.entity';
 
-type Mocks = {
+type _Mocks = {
   invRepo: {
     createQueryBuilder: jest.Mock;
     save: jest.Mock;
@@ -59,7 +59,7 @@ function createService() {
   };
 
   const dataSource = {
-    transaction: jest.fn(async (callback: (m: typeof manager) => unknown) =>
+    transaction: jest.fn((callback: (m: typeof manager) => unknown) =>
       callback(manager),
     ),
   };
@@ -73,7 +73,7 @@ function createService() {
 
   return {
     service,
-    mocks: { invRepo, resRepo, moveRepo, queryBuilder } as Mocks,
+    mocks: { invRepo, resRepo, moveRepo, queryBuilder } as _Mocks,
   };
 }
 
@@ -86,12 +86,14 @@ describe('StockReservationService', () => {
       availableQty: 10,
       reservedQty: 2,
     });
-    mocks.resRepo.save.mockImplementation(async (value: unknown) => value);
+    mocks.resRepo.save.mockImplementation((value: unknown) => value);
 
     const result = await service.reserve(123, [{ productId: 1, quantity: 3 }]);
 
     expect(result).toHaveLength(1);
-    expect(mocks.queryBuilder.setLock).toHaveBeenCalledWith('pessimistic_write');
+    expect(mocks.queryBuilder.setLock).toHaveBeenCalledWith(
+      'pessimistic_write',
+    );
     expect(mocks.queryBuilder.where).toHaveBeenCalledWith(
       'inventory.product_id = :productId',
       { productId: 1 },
@@ -117,7 +119,9 @@ describe('StockReservationService', () => {
       service.reserve(123, [{ productId: 1, quantity: 2 }]),
     ).rejects.toBeInstanceOf(BadRequestException);
 
-    expect(mocks.queryBuilder.setLock).toHaveBeenCalledWith('pessimistic_write');
+    expect(mocks.queryBuilder.setLock).toHaveBeenCalledWith(
+      'pessimistic_write',
+    );
     expect(mocks.invRepo.save).not.toHaveBeenCalled();
   });
 
@@ -141,7 +145,9 @@ describe('StockReservationService', () => {
 
     await service.release(123);
 
-    expect(mocks.queryBuilder.setLock).toHaveBeenCalledWith('pessimistic_write');
+    expect(mocks.queryBuilder.setLock).toHaveBeenCalledWith(
+      'pessimistic_write',
+    );
     expect(mocks.invRepo.save).toHaveBeenCalledWith(
       expect.objectContaining({
         availableQty: 6,

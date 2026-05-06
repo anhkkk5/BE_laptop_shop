@@ -1,5 +1,4 @@
 import { BadRequestException } from '@nestjs/common';
-import { EventEmitter2 } from '@nestjs/event-emitter';
 import { OrderService } from './order.service';
 import { OrderStatus } from '../entities/order.entity';
 import { UserRole } from '../../user/enums/user-role.enum';
@@ -30,11 +29,16 @@ function createService() {
     emit: jest.fn(),
   };
 
+  const shippingService = {
+    createShippingOrder: jest.fn(),
+  };
+
   const service = new OrderService(
     orderRepository as never,
     cartService as never,
     reservationService as never,
     couponService as never,
+    shippingService as never,
     eventEmitter as never,
   );
 
