@@ -32,6 +32,8 @@ import { DashboardModule } from './modules/dashboard/dashboard.module.js';
 import { InventoryModule } from './modules/inventory/inventory.module.js';
 import { WishlistModule } from './modules/wishlist/wishlist.module.js';
 import { CouponModule } from './modules/coupon/coupon.module.js';
+import { ShippingModule } from './modules/shipping/shipping.module.js';
+import { ReturnModule } from './modules/return/return.module.js';
 import { HealthModule } from './modules/health/health.module.js';
 import { AdminSeed } from './database/seeds/admin.seed.js';
 
@@ -118,6 +120,8 @@ import { AdminSeed } from './database/seeds/admin.seed.js';
     InventoryModule,
     WishlistModule,
     CouponModule,
+    ShippingModule,
+    ReturnModule,
     HealthModule,
   ],
   providers: [

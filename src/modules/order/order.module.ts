@@ -9,6 +9,7 @@ import { OrderAdminController } from './controllers/admin/order-admin.controller
 import { CartModule } from '../cart/cart.module.js';
 import { InventoryModule } from '../inventory/inventory.module.js';
 import { CouponModule } from '../coupon/coupon.module.js';
+import { ShippingModule } from '../shipping/shipping.module.js';
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { CouponModule } from '../coupon/coupon.module.js';
     CartModule,
     InventoryModule,
     CouponModule,
+    ShippingModule,
   ],
   controllers: [OrderController, OrderAdminController],
   providers: [OrderRepository, OrderService],

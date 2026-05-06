@@ -83,6 +83,14 @@ export class Order {
   @Column({ type: 'text', nullable: true })
   note!: string | null;
 
+  @Column({
+    name: 'tracking_number',
+    type: 'varchar',
+    length: 50,
+    nullable: true,
+  })
+  trackingNumber!: string | null;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt!: Date;
 

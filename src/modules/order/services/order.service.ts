@@ -3,6 +3,7 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  Logger,
 } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { OrderRepository } from '../repositories/order.repository.js';
@@ -13,14 +14,18 @@ import { UserRole } from '../../user/enums/user-role.enum.js';
 import { CartService } from '../../cart/services/cart.service.js';
 import { StockReservationService } from '../../inventory/services/stock-reservation.service.js';
 import { CouponService } from '../../coupon/services/coupon.service.js';
+import { ShippingService } from '../../shipping/services/shipping.service.js';
 
 @Injectable()
 export class OrderService {
+  private readonly logger = new Logger(OrderService.name);
+
   constructor(
     private readonly orderRepository: OrderRepository,
     private readonly cartService: CartService,
     private readonly reservationService: StockReservationService,
     private readonly couponService: CouponService,
+    private readonly shippingService: ShippingService,
     private readonly eventEmitter: EventEmitter2,
   ) {}
 
@@ -215,6 +220,22 @@ export class OrderService {
       await this.reservationService.release(order.id);
       if (order.couponCode) {
         await this.couponService.rollbackCouponUsage(order.id);
+      }
+    }
+
+    if (dto.status === OrderStatus.READY_TO_SHIP) {
+      try {
+        const shippingOrder = await this.shippingService.createShippingOrder({
+          orderId: order.id,
+          codAmount: order.paymentMethod === 'cod' ? order.total : undefined,
+          insuranceValue: order.total > 5000000 ? order.total : undefined,
+        });
+        order.trackingNumber = shippingOrder.trackingNumber;
+        order.shippingFee = Number(shippingOrder.shippingFee);
+      } catch (err) {
+        this.logger.warn(
+          `Failed to create shipping order for order ${order.id}: ${(err as Error).message}`,
+        );
       }
     }
 
