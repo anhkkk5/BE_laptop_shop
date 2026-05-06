@@ -73,7 +73,7 @@ function createService() {
 
   return {
     service,
-    mocks: { invRepo, resRepo, moveRepo, queryBuilder } as _Mocks,
+    mocks: { invRepo, resRepo, moveRepo, queryBuilder },
   };
 }
 

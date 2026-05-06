@@ -94,7 +94,9 @@ describe('AuthController', () => {
 
   it('should have throttle profiles on sensitive auth endpoints', () => {
     const getMethod = (name: keyof AuthController) =>
-      AuthController.prototype[name] as unknown as Function;
+      AuthController.prototype[name] as unknown as (
+        ...args: unknown[]
+      ) => unknown;
 
     const expectThrottle = (
       methodName: keyof AuthController,

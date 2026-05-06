@@ -1,5 +1,9 @@
 import {
-  Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn,
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  ManyToOne,
+  JoinColumn,
 } from 'typeorm';
 import { ReturnRequest } from './return-request.entity.js';
 
@@ -17,7 +21,12 @@ export class ReturnItem {
   @Column({ name: 'product_name', type: 'varchar', length: 255 })
   productName!: string;
 
-  @Column({ name: 'product_image', type: 'varchar', length: 500, nullable: true })
+  @Column({
+    name: 'product_image',
+    type: 'varchar',
+    length: 500,
+    nullable: true,
+  })
   productImage!: string | null;
 
   @Column({ name: 'unit_price', type: 'decimal', precision: 15, scale: 0 })

@@ -58,7 +58,7 @@ describe('WarrantyService', () => {
       ],
     });
     ticketRepo.findOne.mockResolvedValue(null);
-    ticketRepo.save.mockImplementation(async (ticket: Record<string, unknown>) => ({
+    ticketRepo.save.mockImplementation((ticket: Record<string, unknown>) => ({
       id: 1,
       ...ticket,
     }));
@@ -97,7 +97,8 @@ describe('WarrantyService', () => {
   });
 
   it('should save completed timestamp and emit status_changed event', async () => {
-    const { service, ticketRepo, repairLogRepo, eventEmitter } = createService();
+    const { service, ticketRepo, repairLogRepo, eventEmitter } =
+      createService();
 
     ticketRepo.findOne.mockResolvedValue({
       id: 1,
@@ -113,7 +114,9 @@ describe('WarrantyService', () => {
       returnedAt: null,
     });
 
-    ticketRepo.save.mockImplementation(async (ticket: Record<string, unknown>) => ticket);
+    ticketRepo.save.mockImplementation(
+      (ticket: Record<string, unknown>) => ticket,
+    );
 
     const result = await service.updateStatus(
       1,

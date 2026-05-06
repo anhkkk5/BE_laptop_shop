@@ -12,6 +12,7 @@ export class MockShippingAdapter implements ProviderAdapter {
     _config: ShippingProviderConfig,
     input: CalculateShippingFeeDto,
   ): Promise<{ fee: number; estimatedDays: number }> {
+    await Promise.resolve();
     const baseFee = 30000;
     const weightFee = Math.ceil((input.weightGrams || 500) / 1000) * 5000;
     const serviceMultiplier = input.serviceType === 'express' ? 1.5 : 1;
@@ -30,6 +31,7 @@ export class MockShippingAdapter implements ProviderAdapter {
     labelUrl: string;
     estimatedDelivery: Date;
   }> {
+    await Promise.resolve();
     const trackingNumber = `${config.provider.toUpperCase()}${Date.now()}${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
     const estimatedDelivery = new Date(Date.now() + 4 * 24 * 60 * 60 * 1000);
     this.logger.log(`Mock create order: ${trackingNumber}`);
@@ -53,6 +55,7 @@ export class MockShippingAdapter implements ProviderAdapter {
     }>;
     estimatedDelivery: Date | null;
   }> {
+    await Promise.resolve();
     const now = new Date();
     this.logger.log(`Mock tracking for: ${trackingNumber}`);
     return {
@@ -86,6 +89,7 @@ export class MockShippingAdapter implements ProviderAdapter {
     trackingNumber: string,
     reason: string,
   ): Promise<void> {
+    await Promise.resolve();
     this.logger.log(`Mock cancel: ${trackingNumber}, reason: ${reason}`);
   }
 }

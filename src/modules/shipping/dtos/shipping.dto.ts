@@ -1,5 +1,12 @@
-import { IsString, IsOptional, IsIn, IsNumber, IsBoolean, Min, MaxLength } from 'class-validator';
-import { ServiceType } from '../enums/shipping-status.enum.js';
+import {
+  IsString,
+  IsOptional,
+  IsIn,
+  IsNumber,
+  IsBoolean,
+  Min,
+  MaxLength,
+} from 'class-validator';
 
 export class CalculateShippingFeeDto {
   @IsString()

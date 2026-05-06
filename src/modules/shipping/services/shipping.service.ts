@@ -98,9 +98,7 @@ export class ShippingService {
     return `${input.ward || ''}|${input.district || ''}|${input.province || ''}|${input.weightGrams || 0}|${input.serviceType || 'standard'}`;
   }
 
-  async calculateFee(
-    input: CalculateShippingFeeDto,
-  ): Promise<{
+  async calculateFee(input: CalculateShippingFeeDto): Promise<{
     provider: ShippingProvider;
     fee: number;
     estimatedDays: number;
@@ -228,9 +226,7 @@ export class ShippingService {
     throw new BadRequestException(`All providers failed: ${lastError}`);
   }
 
-  async getTracking(
-    shippingOrderId: number,
-  ): Promise<{
+  async getTracking(shippingOrderId: number): Promise<{
     trackingNumber: string;
     status: string;
     history: ShippingTrackingHistory[];
@@ -363,9 +359,7 @@ export class ShippingService {
     await this.shippingRepo.save(order);
   }
 
-  async bulkCreate(
-    dto: BulkCreateShippingDto,
-  ): Promise<{
+  async bulkCreate(dto: BulkCreateShippingDto): Promise<{
     success: number;
     failed: number;
     failures: Array<{ orderId: number; error: string }>;

@@ -1,5 +1,10 @@
 import {
-  Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, ManyToOne, JoinColumn,
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  CreateDateColumn,
+  ManyToOne,
+  JoinColumn,
 } from 'typeorm';
 import { ReturnRequest } from './return-request.entity.js';
 import { InspectionCondition, RefundType } from '../enums/return.enum.js';
@@ -21,7 +26,13 @@ export class ReturnInspectionReport {
   @Column({ type: 'enum', enum: RefundType })
   refundType!: RefundType;
 
-  @Column({ name: 'deduction_amount', type: 'decimal', precision: 15, scale: 0, default: 0 })
+  @Column({
+    name: 'deduction_amount',
+    type: 'decimal',
+    precision: 15,
+    scale: 0,
+    default: 0,
+  })
   deductionAmount!: number;
 
   @Column({ name: 'deduction_reason', type: 'text', nullable: true })

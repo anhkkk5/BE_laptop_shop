@@ -1,7 +1,11 @@
 import { Controller, Get, INestApplication, Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { Test } from '@nestjs/testing';
-import { SkipThrottle, ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
+import {
+  SkipThrottle,
+  ThrottlerGuard,
+  ThrottlerModule,
+} from '@nestjs/throttler';
 import request from 'supertest';
 import { HealthController } from '../src/modules/health/health.controller';
 import { HealthService } from '../src/modules/health/health.service';

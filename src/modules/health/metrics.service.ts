@@ -18,11 +18,13 @@ export class MetricsService {
       services: { database: 'down', redis: 'down' },
     }));
 
-    const queueStats = await this.notificationService.getQueueStats().catch(() => ({
-      pending: 0,
-      retrying: 0,
-      deadLetter: 0,
-    }));
+    const queueStats = await this.notificationService
+      .getQueueStats()
+      .catch(() => ({
+        pending: 0,
+        retrying: 0,
+        deadLetter: 0,
+      }));
 
     const memory = process.memoryUsage();
 

@@ -12,9 +12,17 @@ import { ShippingProvider } from './enums/shipping-provider.enum.js';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([ShippingOrder, ShippingProviderConfig, ShippingTrackingHistory]),
+    TypeOrmModule.forFeature([
+      ShippingOrder,
+      ShippingProviderConfig,
+      ShippingTrackingHistory,
+    ]),
   ],
-  controllers: [ShippingController, ShippingAdminController, ShippingWebhookController],
+  controllers: [
+    ShippingController,
+    ShippingAdminController,
+    ShippingWebhookController,
+  ],
   providers: [ShippingService, MockShippingAdapter],
   exports: [ShippingService],
 })
@@ -25,8 +33,17 @@ export class ShippingModule implements OnModuleInit {
   ) {}
 
   onModuleInit() {
-    this.shippingService.registerAdapter(ShippingProvider.GHN, this.mockAdapter);
-    this.shippingService.registerAdapter(ShippingProvider.GHTK, this.mockAdapter);
-    this.shippingService.registerAdapter(ShippingProvider.VIETTEL_POST, this.mockAdapter);
+    this.shippingService.registerAdapter(
+      ShippingProvider.GHN,
+      this.mockAdapter,
+    );
+    this.shippingService.registerAdapter(
+      ShippingProvider.GHTK,
+      this.mockAdapter,
+    );
+    this.shippingService.registerAdapter(
+      ShippingProvider.VIETTEL_POST,
+      this.mockAdapter,
+    );
   }
 }

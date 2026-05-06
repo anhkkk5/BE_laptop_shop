@@ -51,7 +51,6 @@ export function initSentryIfConfigured(): void {
 
   const sentry = loadSentry();
   if (!sentry) {
-    // eslint-disable-next-line no-console
     console.warn(
       'SENTRY_DSN is set but @sentry/node is not installed. Skipping Sentry init.',
     );

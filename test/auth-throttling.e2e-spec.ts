@@ -21,13 +21,15 @@ describe('Auth throttling (e2e)', () => {
         user: { id: 1, email: 'user@example.com' },
         tokens: { accessToken: 'access-token', refreshToken: 'refresh-token' },
       }),
-      forgotPassword: jest
-        .fn()
-        .mockResolvedValue({ message: 'If the email exists, a reset link has been sent' }),
+      forgotPassword: jest.fn().mockResolvedValue({
+        message: 'If the email exists, a reset link has been sent',
+      }),
       resetPassword: jest
         .fn()
         .mockResolvedValue({ message: 'Password reset successfully' }),
-      verifyEmail: jest.fn().mockResolvedValue({ message: 'Email verified successfully' }),
+      verifyEmail: jest
+        .fn()
+        .mockResolvedValue({ message: 'Email verified successfully' }),
       sendVerificationEmail: jest.fn().mockResolvedValue(undefined),
       refreshTokens: jest.fn().mockResolvedValue({
         accessToken: 'new-access-token',
@@ -57,7 +59,9 @@ describe('Auth throttling (e2e)', () => {
     })
       .overrideGuard(LocalAuthGuard)
       .useValue({
-        canActivate: (context: Parameters<LocalAuthGuard['canActivate']>[0]) => {
+        canActivate: (
+          context: Parameters<LocalAuthGuard['canActivate']>[0],
+        ) => {
           const req = context.switchToHttp().getRequest<{ user?: unknown }>();
           req.user = { id: 1, email: 'user@example.com', role: 'customer' };
           return true;

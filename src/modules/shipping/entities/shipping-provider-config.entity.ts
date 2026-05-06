@@ -24,7 +24,12 @@ export class ShippingProviderConfig {
   @Column({ name: 'base_url', type: 'varchar', length: 255 })
   baseUrl!: string;
 
-  @Column({ name: 'webhook_secret', type: 'varchar', length: 255, nullable: true })
+  @Column({
+    name: 'webhook_secret',
+    type: 'varchar',
+    length: 255,
+    nullable: true,
+  })
   webhookSecret!: string | null;
 
   @Column({ name: 'warehouse_address', type: 'varchar', length: 255 })

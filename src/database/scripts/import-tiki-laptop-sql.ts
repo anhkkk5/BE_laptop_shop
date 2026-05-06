@@ -208,10 +208,10 @@ async function backupBeforeImport(): Promise<string> {
 }
 
 async function insertBrand(name: string, slug: string): Promise<number> {
-  const result = (await dataSource.query(
+  const result = await dataSource.query(
     'INSERT INTO brands (name, slug, description, logo, website, is_active, sort_order) VALUES (?, ?, NULL, NULL, NULL, 1, 0)',
     [name, slug],
-  )) as { insertId: number };
+  );
   return Number(result.insertId);
 }
 
@@ -220,10 +220,10 @@ async function insertCategory(
   slug: string,
   parentId: number | null,
 ): Promise<number> {
-  const result = (await dataSource.query(
+  const result = await dataSource.query(
     'INSERT INTO categories (name, slug, description, image, parent_id, sort_order, is_active) VALUES (?, ?, NULL, NULL, ?, 0, 1)',
     [name, slug, parentId],
-  )) as { insertId: number };
+  );
   return Number(result.insertId);
 }
 
@@ -243,7 +243,7 @@ async function insertProduct(payload: {
   soldCount: number;
   specs: string;
 }): Promise<number> {
-  const result = (await dataSource.query(
+  const result = await dataSource.query(
     `INSERT INTO products (
       name, slug, description, short_description, price, sale_price, sku,
       stock_quantity, category_id, brand_id, seller_id, sold_count,
@@ -265,7 +265,7 @@ async function insertProduct(payload: {
       payload.status,
       payload.specs,
     ],
-  )) as { insertId: number };
+  );
 
   return Number(result.insertId);
 }

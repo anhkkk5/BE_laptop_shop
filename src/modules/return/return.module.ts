@@ -9,7 +9,14 @@ import { ReturnController } from './controllers/client/return.controller.js';
 import { ReturnAdminController } from './controllers/admin/return-admin.controller.js';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([ReturnRequest, ReturnItem, RefundTransaction, ReturnInspectionReport])],
+  imports: [
+    TypeOrmModule.forFeature([
+      ReturnRequest,
+      ReturnItem,
+      RefundTransaction,
+      ReturnInspectionReport,
+    ]),
+  ],
   controllers: [ReturnController, ReturnAdminController],
   providers: [ReturnService],
   exports: [ReturnService],

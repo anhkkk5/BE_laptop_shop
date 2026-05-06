@@ -93,7 +93,9 @@ describe('NotificationAdminController (e2e)', () => {
   });
 
   it('should allow admin role to retry dead-letter jobs', async () => {
-    notificationService.retryDeadLetterJobs.mockResolvedValueOnce({ retried: 3 });
+    notificationService.retryDeadLetterJobs.mockResolvedValueOnce({
+      retried: 3,
+    });
 
     await request(app.getHttpServer())
       .post('/api/v1/admin/notifications/dlq/retry?limit=3')

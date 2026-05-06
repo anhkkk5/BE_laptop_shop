@@ -4,11 +4,13 @@ import {
   Column,
   CreateDateColumn,
   UpdateDateColumn,
-  ManyToOne,
-  JoinColumn,
 } from 'typeorm';
 import { ShippingProvider } from '../enums/shipping-provider.enum.js';
-import { ShippingStatus, CodStatus, ServiceType } from '../enums/shipping-status.enum.js';
+import {
+  ShippingStatus,
+  CodStatus,
+  ServiceType,
+} from '../enums/shipping-status.enum.js';
 
 @Entity('shipping_orders')
 export class ShippingOrder {
@@ -21,19 +23,45 @@ export class ShippingOrder {
   @Column({ type: 'enum', enum: ShippingProvider })
   provider!: ShippingProvider;
 
-  @Column({ name: 'tracking_number', type: 'varchar', length: 50, nullable: true })
+  @Column({
+    name: 'tracking_number',
+    type: 'varchar',
+    length: 50,
+    nullable: true,
+  })
   trackingNumber!: string | null;
 
-  @Column({ type: 'enum', enum: ShippingStatus, default: ShippingStatus.PENDING })
+  @Column({
+    type: 'enum',
+    enum: ShippingStatus,
+    default: ShippingStatus.PENDING,
+  })
   status!: ShippingStatus;
 
-  @Column({ name: 'service_type', type: 'enum', enum: ServiceType, default: ServiceType.STANDARD })
+  @Column({
+    name: 'service_type',
+    type: 'enum',
+    enum: ServiceType,
+    default: ServiceType.STANDARD,
+  })
   serviceType!: ServiceType;
 
-  @Column({ name: 'shipping_fee', type: 'decimal', precision: 15, scale: 0, default: 0 })
+  @Column({
+    name: 'shipping_fee',
+    type: 'decimal',
+    precision: 15,
+    scale: 0,
+    default: 0,
+  })
   shippingFee!: number;
 
-  @Column({ name: 'cod_amount', type: 'decimal', precision: 15, scale: 0, nullable: true })
+  @Column({
+    name: 'cod_amount',
+    type: 'decimal',
+    precision: 15,
+    scale: 0,
+    nullable: true,
+  })
   codAmount!: number | null;
 
   @Column({ name: 'cod_status', type: 'enum', enum: CodStatus, nullable: true })
@@ -57,10 +85,22 @@ export class ShippingOrder {
   @Column({ name: 'weight_grams', type: 'int', default: 0 })
   weightGrams!: number;
 
-  @Column({ name: 'insurance_value', type: 'decimal', precision: 15, scale: 0, nullable: true })
+  @Column({
+    name: 'insurance_value',
+    type: 'decimal',
+    precision: 15,
+    scale: 0,
+    nullable: true,
+  })
   insuranceValue!: number | null;
 
-  @Column({ name: 'insurance_fee', type: 'decimal', precision: 15, scale: 0, default: 0 })
+  @Column({
+    name: 'insurance_fee',
+    type: 'decimal',
+    precision: 15,
+    scale: 0,
+    default: 0,
+  })
   insuranceFee!: number;
 
   @Column({ name: 'is_return', type: 'boolean', default: false })
@@ -72,7 +112,12 @@ export class ShippingOrder {
   @Column({ name: 'provider_data', type: 'jsonb', nullable: true })
   providerData!: Record<string, unknown> | null;
 
-  @Column({ name: 'cancellation_reason', type: 'varchar', length: 255, nullable: true })
+  @Column({
+    name: 'cancellation_reason',
+    type: 'varchar',
+    length: 255,
+    nullable: true,
+  })
   cancellationReason!: string | null;
 
   @Column({ name: 'retry_count', type: 'int', default: 0 })

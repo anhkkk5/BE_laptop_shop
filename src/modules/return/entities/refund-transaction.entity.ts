@@ -1,5 +1,10 @@
 import {
-  Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, ManyToOne, JoinColumn,
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  CreateDateColumn,
+  ManyToOne,
+  JoinColumn,
 } from 'typeorm';
 import { ReturnRequest } from './return-request.entity.js';
 import { RefundStatus } from '../enums/return.enum.js';
@@ -12,7 +17,12 @@ export class RefundTransaction {
   @Column({ name: 'return_request_id', type: 'int' })
   returnRequestId!: number;
 
-  @Column({ name: 'transaction_ref', type: 'varchar', length: 100, nullable: true })
+  @Column({
+    name: 'transaction_ref',
+    type: 'varchar',
+    length: 100,
+    nullable: true,
+  })
   transactionRef!: string | null;
 
   @Column({ type: 'decimal', precision: 15, scale: 0 })
@@ -36,7 +46,9 @@ export class RefundTransaction {
   @CreateDateColumn({ name: 'created_at' })
   createdAt!: Date;
 
-  @ManyToOne(() => ReturnRequest, (rr) => rr.refundTransactions, { onDelete: 'CASCADE' })
+  @ManyToOne(() => ReturnRequest, (rr) => rr.refundTransactions, {
+    onDelete: 'CASCADE',
+  })
   @JoinColumn({ name: 'return_request_id' })
   returnRequest!: ReturnRequest;
 }

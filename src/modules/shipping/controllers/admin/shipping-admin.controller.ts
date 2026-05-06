@@ -1,8 +1,20 @@
-import { Body, Controller, Delete, Get, Param, ParseIntPipe, Post, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  ParseIntPipe,
+  Post,
+  Query,
+} from '@nestjs/common';
 import { Roles } from '../../../../common/decorators/roles.decorator.js';
 import { UserRole } from '../../../user/enums/user-role.enum.js';
 import { ShippingService } from '../../services/shipping.service.js';
-import { CreateShippingOrderDto, BulkCreateShippingDto, CancelShippingDto } from '../../dtos/shipping.dto.js';
+import {
+  CreateShippingOrderDto,
+  BulkCreateShippingDto,
+  CancelShippingDto,
+} from '../../dtos/shipping.dto.js';
 
 @Controller('admin/shipping')
 @Roles(UserRole.ADMIN, UserRole.STAFF, UserRole.WAREHOUSE)
@@ -25,7 +37,10 @@ export class ShippingAdminController {
   }
 
   @Post(':id/cancel')
-  async cancel(@Param('id', ParseIntPipe) id: number, @Body() dto: CancelShippingDto) {
+  async cancel(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: CancelShippingDto,
+  ) {
     await this.shippingService.cancelShippingOrder(id, dto.reason);
     return { message: 'Shipping order cancelled' };
   }
