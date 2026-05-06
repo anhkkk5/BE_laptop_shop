@@ -12,6 +12,7 @@ import { Order, OrderStatus } from '../entities/order.entity.js';
 import { UserRole } from '../../user/enums/user-role.enum.js';
 import { CartService } from '../../cart/services/cart.service.js';
 import { StockReservationService } from '../../inventory/services/stock-reservation.service.js';
+import { CouponService } from '../../coupon/services/coupon.service.js';
 
 @Injectable()
 export class OrderService {
@@ -19,6 +20,7 @@ export class OrderService {
     private readonly orderRepository: OrderRepository,
     private readonly cartService: CartService,
     private readonly reservationService: StockReservationService,
+    private readonly couponService: CouponService,
     private readonly eventEmitter: EventEmitter2,
   ) {}
 
@@ -103,7 +105,22 @@ export class OrderService {
 
       const subtotal = cart.summary.subtotal;
       const shippingFee = 0;
-      const discountAmount = 0;
+      let discountAmount = 0;
+      let appliedCouponId: number | null = null;
+      let appliedCouponCode: string | null = null;
+
+      if (dto.couponCode) {
+        const validated = await this.couponService.validateForCheckout({
+          code: dto.couponCode,
+          userId,
+          subtotal,
+        });
+
+        discountAmount = validated.discountAmount;
+        appliedCouponId = validated.coupon.id;
+        appliedCouponCode = validated.coupon.code;
+      }
+
       const total = subtotal + shippingFee - discountAmount;
 
       const order = await this.orderRepository.create({
@@ -114,6 +131,7 @@ export class OrderService {
         customerPhone: dto.customerPhone,
         shippingAddress: dto.shippingAddress,
         paymentMethod: dto.paymentMethod || 'cod',
+        couponCode: appliedCouponCode,
         subtotal,
         shippingFee,
         discountAmount,
@@ -132,6 +150,15 @@ export class OrderService {
       // Re-reserve with correct orderId then clear cart
       await this.reservationService.release(0);
       await this.reservationService.reserve(order.id, reserveItems);
+
+      if (appliedCouponId !== null && discountAmount > 0) {
+        await this.couponService.markCouponUsed(
+          appliedCouponId,
+          userId,
+          order.id,
+          discountAmount,
+        );
+      }
 
       await this.cartService.clearCart(userId);
 
@@ -186,6 +213,9 @@ export class OrderService {
 
     if (dto.status === OrderStatus.CANCELLED) {
       await this.reservationService.release(order.id);
+      if (order.couponCode) {
+        await this.couponService.rollbackCouponUsage(order.id);
+      }
     }
 
     order.status = dto.status;
@@ -206,6 +236,9 @@ export class OrderService {
     }
 
     await this.reservationService.release(order.id);
+    if (order.couponCode) {
+      await this.couponService.rollbackCouponUsage(order.id);
+    }
 
     order.status = OrderStatus.CANCELLED;
     await this.orderRepository.save(order);

@@ -8,12 +8,14 @@ import { OrderController } from './controllers/client/order.controller.js';
 import { OrderAdminController } from './controllers/admin/order-admin.controller.js';
 import { CartModule } from '../cart/cart.module.js';
 import { InventoryModule } from '../inventory/inventory.module.js';
+import { CouponModule } from '../coupon/coupon.module.js';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Order, OrderItem]),
     CartModule,
     InventoryModule,
+    CouponModule,
   ],
   controllers: [OrderController, OrderAdminController],
   providers: [OrderRepository, OrderService],

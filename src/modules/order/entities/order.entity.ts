@@ -53,6 +53,9 @@ export class Order {
   @Column({ type: 'varchar', length: 50, default: 'cod' })
   paymentMethod!: string;
 
+  @Column({ name: 'coupon_code', type: 'varchar', length: 50, nullable: true })
+  couponCode!: string | null;
+
   @Column({ type: 'decimal', precision: 15, scale: 0 })
   subtotal!: number;
 

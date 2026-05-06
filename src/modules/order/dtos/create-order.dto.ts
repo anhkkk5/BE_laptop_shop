@@ -22,4 +22,9 @@ export class CreateOrderDto {
   @IsString()
   @IsIn(['cod'])
   paymentMethod?: 'cod';
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(50)
+  couponCode?: string;
 }

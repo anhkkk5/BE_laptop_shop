@@ -21,6 +21,11 @@ function createService() {
     confirm: jest.fn(),
   };
 
+  const couponService = {
+    validateForCheckout: jest.fn(),
+    markCouponUsed: jest.fn(),
+  };
+
   const eventEmitter = {
     emit: jest.fn(),
   };
@@ -29,6 +34,7 @@ function createService() {
     orderRepository as never,
     cartService as never,
     reservationService as never,
+    couponService as never,
     eventEmitter as never,
   );
 

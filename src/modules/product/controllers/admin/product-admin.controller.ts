@@ -1,7 +1,6 @@
 import {
   BadRequestException,
   Controller,
-  ForbiddenException,
   InternalServerErrorException,
   Get,
   Post,
@@ -19,7 +18,6 @@ import { FilesInterceptor } from '@nestjs/platform-express';
 import axios from 'axios';
 import { createHash } from 'node:crypto';
 import { Roles } from '../../../../common/decorators/roles.decorator.js';
-import { CurrentUser } from '../../../../common/decorators/index.js';
 import { UserRole } from '../../../../common/constants/index.js';
 import { ProductService } from '../../services/product.service.js';
 import { CreateProductDto } from '../../dtos/create-product.dto.js';
@@ -27,7 +25,7 @@ import { UpdateProductDto } from '../../dtos/update-product.dto.js';
 import { QueryProductDto } from '../../dtos/query-product.dto.js';
 
 @Controller('admin/products')
-@Roles(UserRole.ADMIN, UserRole.WAREHOUSE, UserRole.SELLER)
+@Roles(UserRole.ADMIN, UserRole.WAREHOUSE)
 export class ProductAdminController {
   constructor(
     private readonly productService: ProductService,
@@ -95,7 +93,7 @@ export class ProductAdminController {
   }
 
   @Post('upload-images')
-  @Roles(UserRole.ADMIN, UserRole.SELLER)
+  @Roles(UserRole.ADMIN)
   @UseInterceptors(
     FilesInterceptor('files', 12, {
       limits: {
@@ -155,46 +153,24 @@ export class ProductAdminController {
   }
 
   @Post()
-  @Roles(UserRole.ADMIN, UserRole.SELLER)
-  async create(
-    @CurrentUser() user: { id: number; role: UserRole },
-    @Body() dto: CreateProductDto,
-  ) {
-    if (user.role === UserRole.SELLER) {
-      dto.sellerId = user.id;
-    }
+  @Roles(UserRole.ADMIN)
+  async create(@Body() dto: CreateProductDto) {
     return this.productService.create(dto);
   }
 
   @Put(':id')
-  @Roles(UserRole.ADMIN, UserRole.SELLER)
+  @Roles(UserRole.ADMIN)
   async update(
-    @CurrentUser() user: { id: number; role: UserRole },
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateProductDto,
   ) {
-    if (user.role === UserRole.SELLER) {
-      const product = await this.productService.findById(id);
-      if (product.sellerId !== user.id) {
-        throw new ForbiddenException('Bạn chỉ được sửa sản phẩm của mình');
-      }
-    }
     await this.productService.update(id, dto);
     return { message: 'Product updated successfully' };
   }
 
   @Delete(':id')
-  @Roles(UserRole.ADMIN, UserRole.SELLER)
-  async delete(
-    @CurrentUser() user: { id: number; role: UserRole },
-    @Param('id', ParseIntPipe) id: number,
-  ) {
-    if (user.role === UserRole.SELLER) {
-      const product = await this.productService.findById(id);
-      if (product.sellerId !== user.id) {
-        throw new ForbiddenException('Bạn chỉ được xóa sản phẩm của mình');
-      }
-    }
+  @Roles(UserRole.ADMIN)
+  async delete(@Param('id', ParseIntPipe) id: number) {
     await this.productService.delete(id);
     return { message: 'Product deleted successfully' };
   }
