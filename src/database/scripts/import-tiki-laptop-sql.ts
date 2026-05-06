@@ -38,19 +38,23 @@ type TikiItem = {
   };
 };
 
-type BrandRow = { id: number; name: string; slug: string };
-type CategoryRow = {
+interface BrandRow {
+  id: number;
+  name: string;
+  slug: string;
+}
+interface CategoryRow {
   id: number;
   name: string;
   slug: string;
   parent_id: number | null;
-};
-type ProductRow = {
+}
+interface ProductRow {
   id: number;
   name: string;
   slug: string;
   sku: string | null;
-};
+}
 
 const PRODUCT_STATUS = {
   ACTIVE: 'active',
@@ -360,17 +364,11 @@ async function runImport() {
     return Boolean(name) && Boolean(price && price > 0);
   });
 
-  const [brands, categories, products] = await Promise.all([
-    dataSource.query('SELECT id, name, slug FROM brands') as Promise<
-      BrandRow[]
-    >,
-    dataSource.query(
-      'SELECT id, name, slug, parent_id FROM categories',
-    ) as Promise<CategoryRow[]>,
-    dataSource.query('SELECT id, name, slug, sku FROM products') as Promise<
-      ProductRow[]
-    >,
-  ]);
+  const [brands, categories, products] = (await Promise.all([
+    dataSource.query('SELECT id, name, slug FROM brands'),
+    dataSource.query('SELECT id, name, slug, parent_id FROM categories'),
+    dataSource.query('SELECT id, name, slug, sku FROM products'),
+  ])) as [BrandRow[], CategoryRow[], ProductRow[]];
 
   const usedBrandSlugs = new Set(brands.map((item) => item.slug));
   const usedCategorySlugs = new Set(categories.map((item) => item.slug));
