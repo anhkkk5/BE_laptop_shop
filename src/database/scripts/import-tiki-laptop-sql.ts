@@ -173,6 +173,33 @@ function collectImageUrls(item: TikiItem): string[] {
   return Array.from(urls).slice(0, 12);
 }
 
+function _createUniqueSku(baseSlug: string, usedSkus: Set<string>): string {
+  let candidate = baseSlug
+    .slice(0, 40)
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, '');
+  if (!candidate) candidate = 'SKU';
+  while (usedSkus.has(candidate)) {
+    const next = `${candidate}_${Date.now().toString(36)}`;
+    usedSkus.add(next);
+    return next;
+  }
+  usedSkus.add(candidate);
+  return candidate;
+}
+
+function hasInsertId(result: unknown): result is { insertId: unknown } {
+  return Boolean(result && typeof result === 'object' && 'insertId' in result);
+}
+
+function getInsertId(result: unknown): number {
+  if (!hasInsertId(result)) {
+    throw new Error('INSERT query did not return insertId');
+  }
+  const rawInsertId = result.insertId;
+  return Number(rawInsertId);
+}
+
 async function backupBeforeImport(): Promise<string> {
   const backupDir = resolve(process.cwd(), 'backups');
   await mkdir(backupDir, { recursive: true });
@@ -208,11 +235,11 @@ async function backupBeforeImport(): Promise<string> {
 }
 
 async function insertBrand(name: string, slug: string): Promise<number> {
-  const result = await dataSource.query(
+  const result: unknown = await dataSource.query(
     'INSERT INTO brands (name, slug, description, logo, website, is_active, sort_order) VALUES (?, ?, NULL, NULL, NULL, 1, 0)',
     [name, slug],
   );
-  return Number(result.insertId);
+  return getInsertId(result);
 }
 
 async function insertCategory(
@@ -220,11 +247,11 @@ async function insertCategory(
   slug: string,
   parentId: number | null,
 ): Promise<number> {
-  const result = await dataSource.query(
+  const result: unknown = await dataSource.query(
     'INSERT INTO categories (name, slug, description, image, parent_id, sort_order, is_active) VALUES (?, ?, NULL, NULL, ?, 0, 1)',
     [name, slug, parentId],
   );
-  return Number(result.insertId);
+  return getInsertId(result);
 }
 
 async function insertProduct(payload: {
@@ -243,7 +270,7 @@ async function insertProduct(payload: {
   soldCount: number;
   specs: string;
 }): Promise<number> {
-  const result = await dataSource.query(
+  const result: unknown = await dataSource.query(
     `INSERT INTO products (
       name, slug, description, short_description, price, sale_price, sku,
       stock_quantity, category_id, brand_id, seller_id, sold_count,
@@ -267,7 +294,7 @@ async function insertProduct(payload: {
     ],
   );
 
-  return Number(result.insertId);
+  return getInsertId(result);
 }
 
 async function updateProduct(

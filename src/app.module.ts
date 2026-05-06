@@ -65,7 +65,15 @@ import { AdminSeed } from './database/seeds/admin.seed.js';
       inject: [ConfigService],
       useFactory: (config: ConfigService) => {
         const password = config.get<string>('redis.password');
-        const options: any = {
+        const options: {
+          type: 'single';
+          options: {
+            host?: string;
+            port?: number;
+            password?: string;
+            username?: string;
+          };
+        } = {
           type: 'single' as const,
           options: {
             host: config.get<string>('redis.host'),
@@ -91,13 +99,18 @@ import { AdminSeed } from './database/seeds/admin.seed.js';
       inject: [ConfigService],
       useFactory: (config: ConfigService) => {
         const password = config.get<string>('redis.password');
-        const connection: Record<string, unknown> = {
+        const connection: {
+          host?: string;
+          port?: number;
+          password?: string;
+          username?: string;
+        } = {
           host: config.get<string>('redis.host'),
           port: config.get<number>('redis.port'),
         };
         if (password) {
-          (connection as any).password = password;
-          (connection as any).username =
+          connection.password = password;
+          connection.username =
             config.get<string>('redis.username', 'default') || 'default';
         }
         return { connection };
