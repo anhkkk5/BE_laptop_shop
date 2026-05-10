@@ -40,7 +40,7 @@ export class RefundTransaction {
   @Column({ name: 'retry_count', type: 'int', default: 0 })
   retryCount!: number;
 
-  @Column({ name: 'completed_at', type: 'timestamptz', nullable: true })
+  @Column({ name: 'completed_at', type: 'timestamp', nullable: true })
   completedAt!: Date | null;
 
   @CreateDateColumn({ name: 'created_at' })

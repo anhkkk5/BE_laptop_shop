@@ -11,6 +11,7 @@ import {
 import { Category } from '../../category/entities/category.entity.js';
 import { Brand } from '../../brand/entities/brand.entity.js';
 import { ProductImage } from './product-image.entity.js';
+import { ProductVariant } from './product-variant.entity.js';
 import type { User } from '../../user/entities/user.entity.js';
 
 export enum ProductStatus {
@@ -113,6 +114,9 @@ export class Product {
 
   @OneToMany(() => ProductImage, (img) => img.product, { cascade: true })
   images!: ProductImage[];
+
+  @OneToMany(() => ProductVariant, (v) => v.product, { cascade: true })
+  variants!: ProductVariant[];
 
   @ManyToOne('User', 'sellerProducts', { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'seller_id' })

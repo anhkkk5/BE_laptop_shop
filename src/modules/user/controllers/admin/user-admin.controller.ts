@@ -1,6 +1,8 @@
 import {
+  Delete,
   Controller,
   Get,
+  Post,
   Patch,
   Param,
   Body,
@@ -11,7 +13,8 @@ import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { UserService } from '../../services/user.service.js';
 import { AdminUpdateUserDto } from '../../dtos/update-user.dto.js';
 import { AdminUserQueryDto } from '../../dtos/admin-user-query.dto.js';
-import { Roles } from '../../../../common/decorators/index.js';
+import { AdminCreateUserDto } from '../../dtos/admin-create-user.dto.js';
+import { CurrentUser, Roles } from '../../../../common/decorators/index.js';
 import { UserRole } from '../../enums/user-role.enum.js';
 
 @ApiTags('Admin - Users')
@@ -33,6 +36,13 @@ export class UserAdminController {
     return result;
   }
 
+  @Post()
+  async create(@Body() dto: AdminCreateUserDto) {
+    const user = await this.userService.adminCreate(dto);
+    const { password: _pwd, refreshToken: _rt, ...result } = user;
+    return result;
+  }
+
   @Patch(':id')
   async update(
     @Param('id', ParseIntPipe) id: number,
@@ -40,5 +50,14 @@ export class UserAdminController {
   ) {
     await this.userService.adminUpdate(id, dto);
     return { message: 'User updated' };
+  }
+
+  @Delete(':id')
+  async remove(
+    @CurrentUser('id') currentAdminId: number,
+    @Param('id', ParseIntPipe) id: number,
+  ) {
+    await this.userService.adminDelete(id, currentAdminId);
+    return { message: 'User deleted' };
   }
 }

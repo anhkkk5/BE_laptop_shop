@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(Get-ChildItem -Path \"d:\\\\KhoaNode\\\\BeShopLapTop\\\\src\\\\modules\" -Directory)",
+      "Bash(Select-Object Name)",
+      "PowerShell(Get-ChildItem -Path \"d:\\\\Khoafronend\\\\FeShopLaptop\\\\src\\\\app\" -Recurse -Filter \"page.tsx\" -o Name)",
+      "Bash(awk '{print $NF}')",
+      "Bash(cd /d/Khoafronend/FeShopLaptop && find . -type f -name \"*.tsx\" -o -name \"*.ts\" -o -name \"*.json\" -o -name \"*.js\" | head -50)",
+      "Read(//d/d/Khoafronend/**)"
+    ]
+  }
+}

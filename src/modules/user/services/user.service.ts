@@ -2,9 +2,12 @@ import {
   Injectable,
   NotFoundException,
   ConflictException,
+  BadRequestException,
 } from '@nestjs/common';
+import * as bcrypt from 'bcrypt';
 import { UserRepository } from '../repositories/user.repository.js';
 import { CreateUserDto } from '../dtos/create-user.dto.js';
+import { AdminCreateUserDto } from '../dtos/admin-create-user.dto.js';
 import {
   UpdateProfileDto,
   AdminUpdateUserDto,
@@ -34,6 +37,22 @@ export class UserService {
     const exists = await this.userRepository.existsByEmail(dto.email);
     if (exists) throw new ConflictException('Email already exists');
     return this.userRepository.create(dto);
+  }
+
+  async adminCreate(dto: AdminCreateUserDto): Promise<User> {
+    const exists = await this.userRepository.existsByEmail(dto.email);
+    if (exists) throw new ConflictException('Email already exists');
+
+    const hashedPassword = await bcrypt.hash(dto.password, 10);
+    return this.userRepository.create({
+      email: dto.email,
+      password: hashedPassword,
+      fullName: dto.fullName,
+      phone: dto.phone ?? null,
+      avatar: dto.avatar ?? null,
+      role: dto.role ?? UserRole.CUSTOMER,
+      isVerified: true,
+    });
   }
 
   async updateProfile(id: number, dto: UpdateProfileDto): Promise<void> {
@@ -66,6 +85,14 @@ export class UserService {
 
   async verifyEmail(id: number): Promise<void> {
     await this.userRepository.update(id, { isVerified: true });
+  }
+
+  async adminDelete(id: number, currentAdminId: number): Promise<void> {
+    const user = await this.findById(id);
+    if (user.id === currentAdminId) {
+      throw new BadRequestException('Cannot delete current logged-in admin');
+    }
+    await this.userRepository.deleteById(id);
   }
 
   async updatePassword(id: number, hashedPassword: string): Promise<void> {

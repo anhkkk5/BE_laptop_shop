@@ -64,7 +64,7 @@ export class ReturnRequest {
   })
   refundAmount!: number | null;
 
-  @Column({ name: 'refund_breakdown', type: 'jsonb', nullable: true })
+  @Column({ name: 'refund_breakdown', type: 'json', nullable: true })
   refundBreakdown!: Record<string, unknown> | null;
 
   @Column({ name: 'bank_account', type: 'varchar', length: 50, nullable: true })
@@ -90,13 +90,13 @@ export class ReturnRequest {
   @Column({ name: 'reviewed_by', type: 'int', nullable: true })
   reviewedBy!: number | null;
 
-  @Column({ name: 'reviewed_at', type: 'timestamptz', nullable: true })
+  @Column({ name: 'reviewed_at', type: 'timestamp', nullable: true })
   reviewedAt!: Date | null;
 
   @Column({ name: 'rejection_reason', type: 'text', nullable: true })
   rejectionReason!: string | null;
 
-  @Column({ name: 'cancelled_at', type: 'timestamptz', nullable: true })
+  @Column({ name: 'cancelled_at', type: 'timestamp', nullable: true })
   cancelledAt!: Date | null;
 
   @Column({ name: 'is_flagged_fraud', type: 'boolean', default: false })

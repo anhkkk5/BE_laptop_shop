@@ -25,10 +25,10 @@ export class ShippingTrackingHistory {
   @Column({ type: 'text', nullable: true })
   description!: string | null;
 
-  @Column({ name: 'event_time', type: 'timestamptz' })
+  @Column({ name: 'event_time', type: 'timestamp' })
   eventTime!: Date;
 
-  @Column({ name: 'provider_raw', type: 'jsonb', nullable: true })
+  @Column({ name: 'provider_raw', type: 'json', nullable: true })
   providerRaw!: Record<string, unknown> | null;
 
   @CreateDateColumn({ name: 'created_at' })

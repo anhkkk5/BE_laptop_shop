@@ -12,14 +12,12 @@ export class InventoryQueueInitializer implements OnModuleInit {
   ) {}
 
   async onModuleInit(): Promise<void> {
-    await this.inventoryQueue.add(
-      'release-expired',
-      {},
-      {
-        repeat: { every: 5 * 60 * 1000 },
-        removeOnComplete: true,
-      },
+    // upsertJobScheduler is idempotent — safe to call on every restart
+    await this.inventoryQueue.upsertJobScheduler(
+      'release-expired-scheduler',
+      { every: 5 * 60 * 1000 },
+      { name: 'release-expired', data: {} },
     );
-    this.logger.log('Scheduled inventory release-expired job every 5 minutes');
+    this.logger.log('Scheduled release-expired job every 5 minutes');
   }
 }

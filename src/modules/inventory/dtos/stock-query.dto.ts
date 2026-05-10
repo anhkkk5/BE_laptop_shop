@@ -1,5 +1,14 @@
-import { IsInt, IsOptional, Min } from 'class-validator';
+import {
+  IsDateString,
+  IsEnum,
+  IsInt,
+  IsOptional,
+  IsString,
+  MaxLength,
+  Min,
+} from 'class-validator';
 import { Type } from 'class-transformer';
+import { StockMovementType } from '../entities/stock-movement.entity.js';
 
 export class StockQueryDto {
   @IsOptional()
@@ -16,4 +25,21 @@ export class StockQueryDto {
 
   @IsOptional()
   productId?: number;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  search?: string;
+
+  @IsOptional()
+  @IsEnum(StockMovementType)
+  movementType?: StockMovementType;
+
+  @IsOptional()
+  @IsDateString()
+  fromDate?: string;
+
+  @IsOptional()
+  @IsDateString()
+  toDate?: string;
 }

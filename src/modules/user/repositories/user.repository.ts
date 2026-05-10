@@ -32,6 +32,10 @@ export class UserRepository {
     await this.repo.update(id, data);
   }
 
+  async deleteById(id: number): Promise<void> {
+    await this.repo.delete(id);
+  }
+
   async findAll(page: number, limit: number, role?: UserRole) {
     const query = this.repo
       .createQueryBuilder('user')

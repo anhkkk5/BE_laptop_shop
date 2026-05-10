@@ -23,6 +23,7 @@ import { ProductService } from '../../services/product.service.js';
 import { CreateProductDto } from '../../dtos/create-product.dto.js';
 import { UpdateProductDto } from '../../dtos/update-product.dto.js';
 import { QueryProductDto } from '../../dtos/query-product.dto.js';
+import { CreateProductVariantDto } from '../../dtos/create-product-variant.dto.js';
 
 @Controller('admin/products')
 @Roles(UserRole.ADMIN, UserRole.WAREHOUSE)
@@ -173,5 +174,41 @@ export class ProductAdminController {
   async delete(@Param('id', ParseIntPipe) id: number) {
     await this.productService.delete(id);
     return { message: 'Product deleted successfully' };
+  }
+
+  // ─── Variant endpoints ───────────────────────────────────────────────────────
+
+  @Get(':id/variants')
+  async getVariants(@Param('id', ParseIntPipe) id: number) {
+    return this.productService.getVariants(id);
+  }
+
+  @Post(':id/variants')
+  @Roles(UserRole.ADMIN)
+  async createVariant(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: CreateProductVariantDto,
+  ) {
+    return this.productService.createVariant(id, dto);
+  }
+
+  @Put(':id/variants/:variantId')
+  @Roles(UserRole.ADMIN)
+  async updateVariant(
+    @Param('id', ParseIntPipe) id: number,
+    @Param('variantId', ParseIntPipe) variantId: number,
+    @Body() dto: CreateProductVariantDto,
+  ) {
+    return this.productService.updateVariant(id, variantId, dto);
+  }
+
+  @Delete(':id/variants/:variantId')
+  @Roles(UserRole.ADMIN)
+  async deleteVariant(
+    @Param('id', ParseIntPipe) id: number,
+    @Param('variantId', ParseIntPipe) variantId: number,
+  ) {
+    await this.productService.deleteVariant(id, variantId);
+    return { message: 'Variant deleted' };
   }
 }

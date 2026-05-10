@@ -17,8 +17,15 @@ export class CartItemRepository {
   async findByCartAndProduct(
     cartId: number,
     productId: number,
+    variantId?: number | null,
   ): Promise<CartItem | null> {
-    return this.repo.findOne({ where: { cartId, productId } });
+    return this.repo.findOne({
+      where: {
+        cartId,
+        productId,
+        variantId: variantId ?? null,
+      },
+    });
   }
 
   async create(data: Partial<CartItem>): Promise<CartItem> {

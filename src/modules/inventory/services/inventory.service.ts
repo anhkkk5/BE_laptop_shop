@@ -29,13 +29,22 @@ export class InventoryService {
     return inv;
   }
 
-  async listInventory(page = 1, limit = 20) {
-    const [data, total] = await this.inventoryRepo.findAndCount({
-      relations: ['product'],
-      order: { updatedAt: 'DESC' },
-      skip: (page - 1) * limit,
-      take: limit,
-    });
+  async listInventory(page = 1, limit = 20, search?: string) {
+    const qb = this.inventoryRepo
+      .createQueryBuilder('inv')
+      .leftJoinAndSelect('inv.product', 'product')
+      .orderBy('inv.updatedAt', 'DESC')
+      .skip((page - 1) * limit)
+      .take(limit);
+
+    const keyword = search?.trim();
+    if (keyword) {
+      qb.andWhere('(product.name LIKE :keyword OR product.sku LIKE :keyword)', {
+        keyword: `%${keyword}%`,
+      });
+    }
+
+    const [data, total] = await qb.getManyAndCount();
     return {
       data,
       meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
@@ -175,7 +184,21 @@ export class InventoryService {
     });
   }
 
-  async getMovements(productId: number, page = 1, limit = 20) {
-    return this.movementRepo.findByProductId(productId, page, limit);
+  async getMovements(
+    productId: number,
+    page = 1,
+    limit = 20,
+    movementType?: StockMovementType,
+    fromDate?: string,
+    toDate?: string,
+  ) {
+    return this.movementRepo.findByProductId(
+      productId,
+      page,
+      limit,
+      movementType,
+      fromDate,
+      toDate,
+    );
   }
 }

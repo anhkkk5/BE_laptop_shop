@@ -7,9 +7,10 @@ import { CartItemRepository } from './repositories/cart-item.repository.js';
 import { CartService } from './services/cart.service.js';
 import { CartController } from './controllers/client/cart.controller.js';
 import { ProductModule } from '../product/product.module.js';
+import { InventoryModule } from '../inventory/inventory.module.js';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Cart, CartItem]), ProductModule],
+  imports: [TypeOrmModule.forFeature([Cart, CartItem]), ProductModule, InventoryModule],
   controllers: [CartController],
   providers: [CartRepository, CartItemRepository, CartService],
   exports: [CartService],

@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//d/Khoafronend/**)",
+      "Bash(next.config\")",
+      "Bash(Get-ChildItem -Path \"d:\\\\Khoafronend\\\\FeShopLaptop\\\\src\\\\lib\" -Filter \"*service*\" -File)",
+      "Bash(Get-ChildItem -Path \"d:\\\\Khoafronend\\\\FeShopLaptop\\\\src\\\\app\" -Recurse -Filter \"*.tsx\")",
+      "Bash(Select-Object -ExpandProperty FullName)"
+    ]
+  }
+}

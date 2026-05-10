@@ -67,10 +67,10 @@ export class ShippingOrder {
   @Column({ name: 'cod_status', type: 'enum', enum: CodStatus, nullable: true })
   codStatus!: CodStatus | null;
 
-  @Column({ name: 'estimated_delivery', type: 'timestamptz', nullable: true })
+  @Column({ name: 'estimated_delivery', type: 'timestamp', nullable: true })
   estimatedDelivery!: Date | null;
 
-  @Column({ name: 'delivered_at', type: 'timestamptz', nullable: true })
+  @Column({ name: 'delivered_at', type: 'timestamp', nullable: true })
   deliveredAt!: Date | null;
 
   @Column({ name: 'label_url', type: 'varchar', length: 500, nullable: true })
@@ -109,7 +109,7 @@ export class ShippingOrder {
   @Column({ name: 'return_reference_id', type: 'int', nullable: true })
   returnReferenceId!: number | null;
 
-  @Column({ name: 'provider_data', type: 'jsonb', nullable: true })
+  @Column({ name: 'provider_data', type: 'json', nullable: true })
   providerData!: Record<string, unknown> | null;
 
   @Column({

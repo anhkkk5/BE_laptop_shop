@@ -97,87 +97,85 @@ export class OrderService {
       throw new BadRequestException('Cart is empty');
     }
 
+    // --- Step 1: Pre-compute totals (outside any transaction) ---
+    const subtotal = cart.summary.subtotal;
+    const shippingFee = 0;
+    let discountAmount = 0;
+    let appliedCouponId: number | null = null;
+    let appliedCouponCode: string | null = null;
+
+    if (dto.couponCode) {
+      const validated = await this.couponService.validateForCheckout({
+        code: dto.couponCode,
+        userId,
+        subtotal,
+      });
+      discountAmount = validated.discountAmount;
+      appliedCouponId = validated.coupon.id;
+      appliedCouponCode = validated.coupon.code;
+    }
+
+    const total = subtotal + shippingFee - discountAmount;
+
+    // --- Step 2: Create order record ---
+    const order = await this.orderRepository.create({
+      userId,
+      orderCode: this.generateOrderCode(),
+      status: OrderStatus.PENDING,
+      customerName: dto.customerName,
+      customerPhone: dto.customerPhone,
+      shippingAddress: dto.shippingAddress,
+      paymentMethod: dto.paymentMethod || 'cod',
+      couponCode: appliedCouponCode,
+      subtotal,
+      shippingFee,
+      discountAmount,
+      total,
+      note: dto.note || null,
+      items: cart.items.map((item) => ({
+        productId: item.productId,
+        productName: item.productName,
+        productImage: item.productImage,
+        unitPrice: item.unitPrice,
+        quantity: item.quantity,
+        lineTotal: item.unitPrice * item.quantity,
+      })),
+    });
+
+    // --- Step 3: Reserve stock with real orderId (pessimistic lock) ---
     const reserveItems = cart.items.map((item) => ({
       productId: item.productId,
       quantity: item.quantity,
     }));
 
     try {
-      await this.reservationService.reserve(
-        0, // placeholder, will update after order creation
-        reserveItems,
-      );
-
-      const subtotal = cart.summary.subtotal;
-      const shippingFee = 0;
-      let discountAmount = 0;
-      let appliedCouponId: number | null = null;
-      let appliedCouponCode: string | null = null;
-
-      if (dto.couponCode) {
-        const validated = await this.couponService.validateForCheckout({
-          code: dto.couponCode,
-          userId,
-          subtotal,
-        });
-
-        discountAmount = validated.discountAmount;
-        appliedCouponId = validated.coupon.id;
-        appliedCouponCode = validated.coupon.code;
-      }
-
-      const total = subtotal + shippingFee - discountAmount;
-
-      const order = await this.orderRepository.create({
-        userId,
-        orderCode: this.generateOrderCode(),
-        status: OrderStatus.PENDING,
-        customerName: dto.customerName,
-        customerPhone: dto.customerPhone,
-        shippingAddress: dto.shippingAddress,
-        paymentMethod: dto.paymentMethod || 'cod',
-        couponCode: appliedCouponCode,
-        subtotal,
-        shippingFee,
-        discountAmount,
-        total,
-        note: dto.note || null,
-        items: cart.items.map((item) => ({
-          productId: item.productId,
-          productName: item.productName,
-          productImage: item.productImage,
-          unitPrice: item.unitPrice,
-          quantity: item.quantity,
-          lineTotal: item.unitPrice * item.quantity,
-        })),
-      });
-
-      // Re-reserve with correct orderId then clear cart
-      await this.reservationService.release(0);
       await this.reservationService.reserve(order.id, reserveItems);
-
-      if (appliedCouponId !== null && discountAmount > 0) {
-        await this.couponService.markCouponUsed(
-          appliedCouponId,
-          userId,
-          order.id,
-          discountAmount,
-        );
-      }
-
-      await this.cartService.clearCart(userId);
-
-      this.eventEmitter.emit('order.created', {
-        userId: order.userId,
-        orderId: order.id,
-        orderCode: order.orderCode,
-      });
-
-      return order;
-    } catch (error) {
-      await this.reservationService.release(0);
-      throw error;
+    } catch (err) {
+      // Out of stock or inventory error → cancel the order immediately
+      order.status = OrderStatus.CANCELLED;
+      await this.orderRepository.save(order);
+      throw err;
     }
+
+    // --- Step 4: Post-success side effects ---
+    if (appliedCouponId !== null && discountAmount > 0) {
+      await this.couponService.markCouponUsed(
+        appliedCouponId,
+        userId,
+        order.id,
+        discountAmount,
+      );
+    }
+
+    await this.cartService.clearCart(userId);
+
+    this.eventEmitter.emit('order.created', {
+      userId: order.userId,
+      orderId: order.id,
+      orderCode: order.orderCode,
+    });
+
+    return order;
   }
 
   async findMyOrders(userId: number, page: number, limit: number) {

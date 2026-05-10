@@ -37,6 +37,12 @@ export class CartItem {
   })
   productImage!: string | null;
 
+  @Column({ name: 'variant_id', type: 'int', nullable: true })
+  variantId!: number | null;
+
+  @Column({ name: 'variant_label', type: 'varchar', length: 255, nullable: true })
+  variantLabel!: string | null;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt!: Date;
 

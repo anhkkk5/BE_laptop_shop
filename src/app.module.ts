@@ -12,6 +12,7 @@ import {
   redisConfig,
   jwtConfig,
   mailConfig,
+  cloudinaryConfig,
   validate,
 } from './config/index.js';
 import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard.js';
@@ -35,6 +36,8 @@ import { CouponModule } from './modules/coupon/coupon.module.js';
 import { ShippingModule } from './modules/shipping/shipping.module.js';
 import { ReturnModule } from './modules/return/return.module.js';
 import { HealthModule } from './modules/health/health.module.js';
+import { BannerModule } from './modules/banner/banner.module.js';
+import { SiteSettingModule } from './modules/site-setting/site-setting.module.js';
 import { AdminSeed } from './database/seeds/admin.seed.js';
 
 @Module({
@@ -42,7 +45,14 @@ import { AdminSeed } from './database/seeds/admin.seed.js';
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: '.env',
-      load: [appConfig, databaseConfig, redisConfig, jwtConfig, mailConfig],
+      load: [
+        appConfig,
+        databaseConfig,
+        redisConfig,
+        jwtConfig,
+        mailConfig,
+        cloudinaryConfig,
+      ],
       validate,
     }),
 
@@ -136,6 +146,8 @@ import { AdminSeed } from './database/seeds/admin.seed.js';
     ShippingModule,
     ReturnModule,
     HealthModule,
+    BannerModule,
+    SiteSettingModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },

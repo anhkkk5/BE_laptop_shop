@@ -14,14 +14,16 @@ export class ProductRepository {
   async findById(id: number): Promise<Product | null> {
     return this.repo.findOne({
       where: { id },
-      relations: ['category', 'brand', 'images'],
+      relations: ['category', 'brand', 'images', 'variants'],
+      order: { variants: { sortOrder: 'ASC', createdAt: 'ASC' } },
     });
   }
 
   async findBySlug(slug: string): Promise<Product | null> {
     return this.repo.findOne({
       where: { slug },
-      relations: ['category', 'brand', 'images'],
+      relations: ['category', 'brand', 'images', 'variants'],
+      order: { variants: { sortOrder: 'ASC', createdAt: 'ASC' } },
     });
   }
 

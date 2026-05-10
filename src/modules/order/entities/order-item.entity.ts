@@ -40,6 +40,15 @@ export class OrderItem {
   @Column({ name: 'line_total', type: 'decimal', precision: 15, scale: 0 })
   lineTotal!: number;
 
+  @Column({ name: 'variant_id', type: 'int', nullable: true })
+  variantId!: number | null;
+
+  @Column({ name: 'variant_label', type: 'varchar', length: 255, nullable: true })
+  variantLabel!: string | null;
+
+  @Column({ name: 'variant_sku', type: 'varchar', length: 100, nullable: true })
+  variantSku!: string | null;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt!: Date;
 

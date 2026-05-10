@@ -8,8 +8,7 @@ import {
 
 export enum PaymentMethod {
   COD = 'cod',
-  VIETQR = 'vietqr',
-  MOMO = 'momo',
+  SEPAY = 'sepay',
 }
 
 export enum PaymentStatus {

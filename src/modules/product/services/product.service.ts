@@ -5,10 +5,13 @@ import {
 } from '@nestjs/common';
 import { ProductRepository } from '../repositories/product.repository.js';
 import { ProductImageRepository } from '../repositories/product-image.repository.js';
+import { ProductVariantRepository } from '../repositories/product-variant.repository.js';
 import { CreateProductDto } from '../dtos/create-product.dto.js';
 import { UpdateProductDto } from '../dtos/update-product.dto.js';
 import { QueryProductDto } from '../dtos/query-product.dto.js';
+import { CreateProductVariantDto } from '../dtos/create-product-variant.dto.js';
 import { Product } from '../entities/product.entity.js';
+import { ProductVariant } from '../entities/product-variant.entity.js';
 
 @Injectable()
 export class ProductService {
@@ -17,6 +20,7 @@ export class ProductService {
   constructor(
     private readonly productRepository: ProductRepository,
     private readonly productImageRepository: ProductImageRepository,
+    private readonly productVariantRepository: ProductVariantRepository,
   ) {}
 
   async findAll(query: QueryProductDto) {
@@ -122,5 +126,64 @@ export class ProductService {
         : ProductService.LOW_STOCK_THRESHOLD;
 
     return this.productRepository.getInventorySummary(threshold);
+  }
+
+  // ─── Variant methods ────────────────────────────────────────────────────────
+
+  async getVariants(productId: number): Promise<ProductVariant[]> {
+    await this.findById(productId);
+    return this.productVariantRepository.findByProductId(productId);
+  }
+
+  async getVariantById(variantId: number): Promise<ProductVariant | null> {
+    return this.productVariantRepository.findById(variantId);
+  }
+
+  async createVariant(
+    productId: number,
+    dto: CreateProductVariantDto,
+  ): Promise<ProductVariant> {
+    await this.findById(productId);
+    return this.productVariantRepository.create({ ...dto, productId });
+  }
+
+  async updateVariant(
+    productId: number,
+    variantId: number,
+    dto: Partial<CreateProductVariantDto>,
+  ): Promise<ProductVariant> {
+    await this.findById(productId);
+    const variant = await this.productVariantRepository.findById(variantId);
+    if (!variant || variant.productId !== productId) {
+      throw new NotFoundException('Variant not found');
+    }
+    const updated = await this.productVariantRepository.update(variantId, dto);
+    return updated!;
+  }
+
+  async deleteVariant(productId: number, variantId: number): Promise<void> {
+    await this.findById(productId);
+    const variant = await this.productVariantRepository.findById(variantId);
+    if (!variant || variant.productId !== productId) {
+      throw new NotFoundException('Variant not found');
+    }
+    await this.productVariantRepository.delete(variantId);
+  }
+
+  async decreaseVariantStockIfEnough(
+    variantId: number,
+    quantity: number,
+  ): Promise<boolean> {
+    return this.productVariantRepository.decreaseStockIfEnough(
+      variantId,
+      quantity,
+    );
+  }
+
+  async increaseVariantStock(
+    variantId: number,
+    quantity: number,
+  ): Promise<void> {
+    await this.productVariantRepository.increaseStock(variantId, quantity);
   }
 }

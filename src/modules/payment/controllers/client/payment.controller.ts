@@ -11,6 +11,7 @@ import { CurrentUser } from '../../../../common/decorators/current-user.decorato
 import { PaymentService } from '../../services/payment.service.js';
 import { PaymentGatewayService } from '../../services/payment-gateway.service.js';
 import { CreatePaymentDto } from '../../dtos/create-payment.dto.js';
+import { PaymentMethod } from '../../entities/payment.entity.js';
 
 @Controller('payments')
 export class PaymentController {
@@ -19,6 +20,11 @@ export class PaymentController {
     private readonly gatewayService: PaymentGatewayService,
   ) {}
 
+  /**
+   * Tạo payment.
+   * - COD: trả về { payment }
+   * - SePay: trả về { payment, sepayQr: { qrUrl, accountNo, bankCode, accountName, amount, transferCode, description } }
+   */
   @Post('create')
   async createPayment(
     @CurrentUser('id') userId: number,
@@ -27,6 +33,7 @@ export class PaymentController {
     return this.paymentService.create(userId, dto);
   }
 
+  /** Lấy trạng thái payment */
   @Get(':orderId/status')
   async getStatus(
     @CurrentUser('id') userId: number,
@@ -35,8 +42,9 @@ export class PaymentController {
     return this.paymentService.getMyPaymentStatus(userId, orderId);
   }
 
-  @Get(':orderId/vietqr')
-  async getVietQR(
+  /** Lấy thông tin QR SePay (dùng khi vào lại trang thanh toán) */
+  @Get(':orderId/sepay-qr')
+  async getSepayQR(
     @CurrentUser('id') userId: number,
     @Param('orderId', ParseIntPipe) orderId: number,
   ) {
@@ -44,30 +52,9 @@ export class PaymentController {
       userId,
       orderId,
     );
-    const qrData = this.gatewayService.generateVietQR(
-      Number(payment.amount),
-      `Thanh toan don hang ${orderId}`,
-    );
-    return qrData;
-  }
-
-  @Post(':orderId/momo')
-  async createMomo(
-    @CurrentUser('id') userId: number,
-    @Param('orderId', ParseIntPipe) orderId: number,
-  ) {
-    const payment = await this.paymentService.getMyPaymentStatus(
-      userId,
-      orderId,
-    );
-    const momoResponse = await this.gatewayService.createMomoPayment(
-      orderId,
-      Number(payment.amount),
-      `Thanh toán đơn hàng ${orderId}`,
-    );
-    if (momoResponse.resultCode !== 0) {
-      throw new BadRequestException(momoResponse.message);
+    if (payment.method !== PaymentMethod.SEPAY) {
+      throw new BadRequestException('Đơn hàng này không sử dụng SePay');
     }
-    return momoResponse;
+    return this.gatewayService.generateSepayQR(orderId, Number(payment.amount));
   }
 }

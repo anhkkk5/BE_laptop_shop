@@ -27,7 +27,11 @@ export class InventoryController {
 
   @Get()
   async list(@Query() query: StockQueryDto) {
-    return this.inventoryService.listInventory(query.page, query.limit);
+    return this.inventoryService.listInventory(
+      query.page,
+      query.limit,
+      query.search,
+    );
   }
 
   @Get('low-stock')
@@ -50,6 +54,9 @@ export class InventoryController {
       productId,
       query.page,
       query.limit,
+      query.movementType,
+      query.fromDate,
+      query.toDate,
     );
   }
 
@@ -58,8 +65,7 @@ export class InventoryController {
     @Body() dto: ImportStockDto,
     @CurrentUser('id') userId: number,
   ) {
-    const inv = await this.inventoryService.importStock(dto, userId);
-    return { message: 'Stock imported', inventory: inv };
+    return this.inventoryService.importStock(dto, userId);
   }
 
   @Post('export')
@@ -67,8 +73,7 @@ export class InventoryController {
     @Body() dto: ExportStockDto,
     @CurrentUser('id') userId: number,
   ) {
-    const inv = await this.inventoryService.exportStock(dto, userId);
-    return { message: 'Stock exported', inventory: inv };
+    return this.inventoryService.exportStock(dto, userId);
   }
 
   @Post('adjust')
@@ -76,7 +81,6 @@ export class InventoryController {
     @Body() dto: AdjustStockDto,
     @CurrentUser('id') userId: number,
   ) {
-    const inv = await this.inventoryService.adjustStock(dto, userId);
-    return { message: 'Stock adjusted', inventory: inv };
+    return this.inventoryService.adjustStock(dto, userId);
   }
 }
