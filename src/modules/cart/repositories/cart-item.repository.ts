@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { IsNull, Repository } from 'typeorm';
 import { CartItem } from '../entities/cart-item.entity.js';
 
 @Injectable()
@@ -23,7 +23,7 @@ export class CartItemRepository {
       where: {
         cartId,
         productId,
-        variantId: variantId ?? null,
+        variantId: variantId == null ? IsNull() : variantId,
       },
     });
   }

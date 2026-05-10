@@ -28,10 +28,23 @@ function createService() {
     emit: jest.fn(),
   };
 
+  const gatewayService = {
+    generateSepayQR: jest.fn().mockReturnValue({
+      qrUrl: 'https://qr.sepay.vn/img?acc=123',
+      accountNo: '123',
+      bankCode: 'MB',
+      accountName: 'TEST',
+      amount: 0,
+      transferCode: 'SHOP0',
+      description: '',
+    }),
+  };
+
   const service = new PaymentService(
     paymentRepository as never,
     orderService as never,
     reservationService as never,
+    gatewayService as never,
     eventEmitter as never,
   );
 
@@ -76,7 +89,7 @@ describe('PaymentService', () => {
       method: PaymentMethod.COD,
     });
 
-    expect(result.status).toBe(PaymentStatus.SUCCESS);
+    expect(result.payment.status).toBe(PaymentStatus.SUCCESS);
     expect(reservationService.confirm).toHaveBeenCalledWith(11);
     expect(eventEmitter.emit).toHaveBeenCalledWith('payment.completed', {
       userId: 99,
@@ -105,7 +118,7 @@ describe('PaymentService', () => {
       status: PaymentStatus.PENDING,
       transactionCode: null,
       note: null,
-      method: PaymentMethod.VIETQR,
+      method: PaymentMethod.SEPAY,
       amount: 200000,
     });
     paymentRepository.save.mockImplementation((payment: Payment) => payment);
@@ -134,7 +147,7 @@ describe('PaymentService', () => {
       status: PaymentStatus.PENDING,
       transactionCode: null,
       note: null,
-      method: PaymentMethod.VIETQR,
+      method: PaymentMethod.SEPAY,
       amount: 200000,
     });
     paymentRepository.save.mockImplementation((payment: Payment) => payment);
