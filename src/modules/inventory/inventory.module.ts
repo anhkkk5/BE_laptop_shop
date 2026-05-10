@@ -30,6 +30,6 @@ import { ReleaseExpiredProcessor } from './processors/release-expired.processor.
     InventoryQueueInitializer,
     ReleaseExpiredProcessor,
   ],
-  exports: [InventoryService, StockReservationService],
+  exports: [InventoryService, StockReservationService, InventoryRepository],
 })
 export class InventoryModule {}
